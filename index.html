@@ -1,0 +1,210 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  BookOpen, Gamepad2, Calculator, Languages, Star, Brain, 
+  Search, Rocket, Wifi, Battery, Signal, ChevronLeft 
+} from 'lucide-react';
+
+const App = () => {
+  const [filter, setFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Uhrzeit aktualisieren für das iPad-Feeling
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const apps = [
+    { id: 1, title: "Bruchrechnen", type: "learning", subject: "math", url: "#", icon: Calculator, color: "bg-cyan-500" },
+    { id: 2, title: "Past vs Perfect", type: "learning", subject: "english", url: "#", icon: Languages, color: "bg-rose-500" },
+    { id: 3, title: "1x1 Hüpfer", type: "game", subject: "math", url: "#", icon: Gamepad2, color: "bg-indigo-500" },
+    { id: 4, title: "Vocab Battle", type: "game", subject: "english", url: "#", icon: Brain, color: "bg-orange-500" },
+    { id: 5, title: "Satzglieder", type: "learning", subject: "german", url: "#", icon: BookOpen, color: "bg-amber-500" },
+    { id: 6, title: "Rechtschreib-Ninja", type: "game", subject: "german", url: "#", icon: Star, color: "bg-emerald-500" },
+    { id: 7, title: "Geometrie Run", type: "game", subject: "math", url: "#", icon: Rocket, color: "bg-blue-600" },
+  ];
+
+  const filteredApps = apps.filter(app => {
+    const matchesFilter = filter === 'all' || app.type === filter || app.subject === filter;
+    const matchesSearch = app.title.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  // App Icon Komponente
+  const AppIcon = ({ app }) => (
+    <a 
+      href={app.url}
+      className="flex flex-col items-center group cursor-pointer transition-transform active:scale-90"
+    >
+      <div className={`${app.color} w-16 h-16 md:w-20 md:h-20 rounded-[1.25rem] shadow-lg flex items-center justify-center text-white mb-2 transform transition-all group-hover:brightness-110 group-hover:shadow-xl relative overflow-hidden`}>
+        {/* Subtiles Glänzen auf dem Icon */}
+        <div className="absolute top-0 left-0 w-full h-1/2 bg-white/10 rounded-t-[1.25rem]"></div>
+        <app.icon size={36} className="md:w-12 md:h-12 drop-shadow-md" />
+      </div>
+      <span className="text-white text-[11px] md:text-[13px] font-medium text-center leading-tight drop-shadow-md px-1 line-clamp-2 max-w-[80px] md:max-w-[100px]">
+        {app.title}
+      </span>
+    </a>
+  );
+
+  return (
+    <div className="h-screen w-full relative overflow-hidden font-sans select-none bg-[#1c1c1e]">
+      
+      {/* Dynamischer iPad-Hintergrund */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-tr from-indigo-900 via-purple-700 to-pink-500 opacity-80"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-400 rounded-full blur-[120px] opacity-30 animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-pink-400 rounded-full blur-[120px] opacity-30"></div>
+      </div>
+
+      {/* iPad Status Bar */}
+      <div className="relative z-20 flex justify-between items-center px-6 pt-2 pb-1 text-white/90 font-semibold text-sm">
+        <div>
+          {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+        <div className="flex items-center gap-2">
+          <Signal size={16} />
+          <span className="text-xs">LTE</span>
+          <Wifi size={16} />
+          <Battery size={18} className="rotate-0" />
+        </div>
+      </div>
+
+      {/* Search / Spotlight Area */}
+      <div className="relative z-20 flex justify-center mt-4 px-6">
+        <div className="w-full max-w-md relative group">
+          <div className="absolute inset-0 bg-white/10 backdrop-blur-xl rounded-xl border border-white/20"></div>
+          <input
+            type="text"
+            placeholder="Suchen"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full relative z-10 bg-transparent py-2 pl-10 pr-4 text-white placeholder-white/60 focus:outline-none text-sm"
+          />
+          <Search className="absolute left-3 top-2.5 text-white/60 z-10" size={16} />
+        </div>
+      </div>
+
+      {/* Home Screen Grid */}
+      <main className="relative z-10 px-6 pt-8 md:pt-12 h-[calc(100%-180px)] overflow-y-auto custom-scrollbar">
+        
+        {/* Aktiver Filter-Hinweis */}
+        {filter !== 'all' && (
+          <div className="flex items-center mb-6 text-white/80">
+            <button 
+              onClick={() => setFilter('all')}
+              className="flex items-center gap-1 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full hover:bg-white/20 transition-colors"
+            >
+              <ChevronLeft size={16} />
+              <span className="text-sm font-medium">Zurück</span>
+            </button>
+            <h2 className="ml-4 text-xl font-bold capitalize">
+              {filter === 'math' ? 'Mathe' : filter === 'german' ? 'Deutsch' : filter === 'english' ? 'Englisch' : filter === 'learning' ? 'Lernen' : 'Spiele'}
+            </h2>
+          </div>
+        )}
+
+        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-x-4 gap-y-8 max-w-5xl mx-auto">
+          {filteredApps.map(app => (
+            <AppIcon key={app.id} app={app} />
+          ))}
+
+          {/* Fallback wenn nichts gefunden wird */}
+          {filteredApps.length === 0 && (
+            <div className="col-span-full text-center py-12 text-white/60 italic">
+              Keine Apps gefunden...
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* iPad Dock am unteren Rand */}
+      <div className="absolute bottom-4 left-0 w-full z-20 flex justify-center px-4">
+        <div className="bg-white/20 backdrop-blur-2xl border border-white/20 p-3 md:p-4 rounded-[2rem] flex items-center gap-3 md:gap-5 shadow-2xl">
+          
+          {/* Kategorie: Mathe */}
+          <button 
+            onClick={() => setFilter('math')}
+            className={`p-3 md:p-4 rounded-2xl transition-all ${filter === 'math' ? 'bg-white/30 scale-110 shadow-lg' : 'bg-cyan-500 hover:scale-105'} text-white shadow-md`}
+            title="Mathe"
+          >
+            <Calculator size={28} />
+          </button>
+
+          {/* Kategorie: Deutsch */}
+          <button 
+            onClick={() => setFilter('german')}
+            className={`p-3 md:p-4 rounded-2xl transition-all ${filter === 'german' ? 'bg-white/30 scale-110 shadow-lg' : 'bg-amber-500 hover:scale-105'} text-white shadow-md`}
+            title="Deutsch"
+          >
+            <BookOpen size={28} />
+          </button>
+
+          {/* Kategorie: Englisch */}
+          <button 
+            onClick={() => setFilter('english')}
+            className={`p-3 md:p-4 rounded-2xl transition-all ${filter === 'english' ? 'bg-white/30 scale-110 shadow-lg' : 'bg-rose-500 hover:scale-105'} text-white shadow-md`}
+            title="Englisch"
+          >
+            <Languages size={28} />
+          </button>
+
+          {/* Trenner im Dock */}
+          <div className="w-px h-10 bg-white/20 mx-1"></div>
+
+          {/* Kategorie: Lernen */}
+          <button 
+            onClick={() => setFilter('learning')}
+            className={`p-3 md:p-4 rounded-2xl transition-all ${filter === 'learning' ? 'bg-white/30 scale-110 shadow-lg' : 'bg-slate-700 hover:scale-105'} text-white shadow-md`}
+            title="Lern-Apps"
+          >
+            <GraduationCap size={28} />
+          </button>
+
+          {/* Kategorie: Spiele */}
+          <button 
+            onClick={() => setFilter('game')}
+            className={`p-3 md:p-4 rounded-2xl transition-all ${filter === 'game' ? 'bg-white/30 scale-110 shadow-lg' : 'bg-violet-600 hover:scale-105'} text-white shadow-md`}
+            title="Spiele"
+          >
+            <Gamepad2 size={28} />
+          </button>
+        </div>
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 0px;
+        }
+        @keyframes blob {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); }
+        }
+        .animate-pulse {
+          animation: blob 8s infinite ease-in-out;
+        }
+      `}} />
+    </div>
+  );
+};
+
+const GraduationCap = ({ size, className }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+  </svg>
+);
+
+export default App;
