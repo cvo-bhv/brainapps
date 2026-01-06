@@ -66,7 +66,7 @@
         #hint-btn { background: #1E90FF; box-shadow: 0 4px 0 #104E8B; }
         #hint-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #104E8B; }
         
-        #question-wrapper { position: absolute; top: 12%; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; z-index: 6; width: 90%; }
+        #question-wrapper { position: absolute; top: 12%; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; z-index: 6; width: 90%; transition: opacity 0.5s; }
         #bonus-timer { display: flex; gap: 5px; margin-bottom: 5px; }
         .timer-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: opacity 0.3s, transform 0.3s; }
         .timer-dot.inactive { opacity: 0.2; transform: scale(0.7); filter: grayscale(100%); }
@@ -200,7 +200,7 @@
     <div id="ui-layer">
         <div class="hud-left">
             <div class="hud-text">Punkte: <span id="score">0</span> <span id="multiplier-display" class="multiplier-anim hidden">x2</span></div>
-            <div class="hud-subtext">Streak: <span id="streak">0</span> 🔥</div>
+            <div class="hud-subtext">Level: <span id="level-display">1</span> | Streak: <span id="streak">0</span> 🔥</div>
             <div class="hud-local">Dein Rekord: <span id="local-record">0</span></div>
             <div class="hud-record">Online-Rekord: <span id="highscore">0</span></div>
         </div>
@@ -296,6 +296,7 @@
     const highscoreEl = document.getElementById('highscore'); 
     const localRecordEl = document.getElementById('local-record');
     const streakEl = document.getElementById('streak');
+    const levelDisplayEl = document.getElementById('level-display');
     const multiplierEl = document.getElementById('multiplier-display');
     const livesEl = document.getElementById('lives');
     const questionWrapper = document.getElementById('question-wrapper');
@@ -329,15 +330,45 @@
     const LEVEL_HEIGHT_GAP = 130; 
     let platformWidth = 150;
 
+    // --- GAME CONSTANTS & STATE ---
+    const NIGHT_HEIGHT_THRESHOLD = 11000; // When sky becomes fully black
+    const JUMPS_IN_NIGHT_TO_WIN = 3; 
+
     const DIFFICULTIES = [
         { id: 0, label: "Plus ➕", gravity: 0.6, jump: -11.9, type: 'add' },
         { id: 1, label: "Minus ➖", gravity: 0.6, jump: -11.9, type: 'sub' },
         { id: 2, label: "Mal ✖️", gravity: 0.6, jump: -11.9, type: 'mult' },
         { id: 3, label: "Geteilt ➗", gravity: 0.6, jump: -11.9, type: 'div' }
     ];
+
+    const THEMES = [
+        { // Level 1: Earth (Blue -> Black)
+            dayTop: [224, 247, 250], dayBot: [135, 206, 235],
+            nightTop: [10, 10, 20], nightBot: [0, 0, 0],
+            emojis: { 'leaf':['🍂','🍃'], 'cloud':['☁️','🌥️'], 'bird':['🐦','🦅'], 'balloon':['🎈','🪁'], 'space':['🚀','🛰️'], 'star':['⭐','✨'] },
+            platform: "#8e44ad", platformSafe: "#4CAF50", player: "#FF5722", particle: "#2ecc71"
+        },
+        { // Level 2: Mars (Red -> Dark Purple/Black)
+            dayTop: [255, 204, 188], dayBot: [229, 115, 115], // Reddish
+            nightTop: [49, 27, 146], nightBot: [0, 0, 0], // Deep Purple Space
+            emojis: { 'leaf':['☄️','🪨'], 'cloud':['🌪️','🌫️'], 'bird':['🛸','👽'], 'balloon':['🛰️','👾'], 'space':['🪐','🌌'], 'star':['✨','🌟'] },
+            platform: "#c62828", platformSafe: "#ff8f00", player: "#00E5FF", particle: "#FFD700"
+        },
+        { // Level 3: Alien (Green -> Black)
+            dayTop: [220, 237, 200], dayBot: [139, 195, 74],
+            nightTop: [0, 77, 64], nightBot: [0, 0, 0],
+            emojis: { 'leaf':['🦠','🌱'], 'cloud':['🧪','🟢'], 'bird':['🛸','🤖'], 'balloon':['👾','👁️'], 'space':['🌠','🌌'], 'star':['✨','💫'] },
+            platform: "#2e7d32", platformSafe: "#00acc1", player: "#E040FB", particle: "#64FFDA"
+        }
+    ];
     
+    // --- FIXED SCOPE ISSUE ---
+    var currentTheme = THEMES[0]; // Defined with 'var' and at top level for safety
     let currentDifficulty = DIFFICULTIES[2];
     let currentDifficultyIndex = 2;
+    let currentLevel = 1;
+    let currentThemeIndex = 0;
+    
     let currentGravity = BASE_GRAVITY;
     let currentJumpForce = BASE_JUMP_FORCE;
     let useTouchControls = false; 
@@ -348,7 +379,6 @@
     let lives = 3;
     let currentProblem = null;
     let particles = [];
-    let floatingTexts = []; 
     let allPlatforms = [];
     let backgroundObjects = []; 
     let nextPlatformY = 0; 
@@ -361,8 +391,65 @@
     let streak = 0;
     let multiplier = 1;
     let cachedLeaderboard = [];
-    let currentTheme = { platformNormal: "#8e44ad", platformSafe: "#4CAF50", player: "#FF5722", particle: "#2ecc71" };
+    let rocket = null; // Rocket object for transitions
 
+    // State Tracking for Level Progression
+    let jumpsInNightMode = 0;
+    let transitionState = 'NONE'; // NONE, SPAWNED_WIN, LANDED_WIN, BOARDING, ROCKET_LAUNCH, ROCKET_LANDING, DISEMBARK
+
+    // --- ROCKET CLASS ---
+    class Rocket {
+        constructor(x, y) {
+            this.x = x; this.y = y; this.w = 60; this.h = 100;
+            this.state = 'DESCENDING'; // DESCENDING, IDLE, LAUNCHING
+            this.vy = 2; 
+            this.flameSize = 0;
+        }
+        update(targetY, dt) {
+            if (this.state === 'DESCENDING') {
+                if (this.y < targetY - this.h) { this.y += this.vy * 2 * dt; }
+                else { this.y = targetY - this.h; this.state = 'IDLE'; }
+            } else if (this.state === 'LAUNCHING') {
+                this.vy += 0.5 * dt;
+                this.y -= this.vy * dt;
+                this.flameSize = Math.random() * 20 + 20;
+                // Create smoke particles
+                if(Math.random() > 0.5) particles.push(new Particle(this.x + this.w/2, this.y + this.h + 10, '#ddd'));
+            }
+        }
+        draw(ctx) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            // Flames
+            if (this.state === 'LAUNCHING') {
+                ctx.fillStyle = '#ff5722';
+                ctx.beginPath(); ctx.moveTo(10, this.h); ctx.lineTo(30, this.h + this.flameSize); ctx.lineTo(50, this.h); ctx.fill();
+                ctx.fillStyle = '#ffeb3b';
+                ctx.beginPath(); ctx.moveTo(15, this.h); ctx.lineTo(30, this.h + this.flameSize*0.7); ctx.lineTo(45, this.h); ctx.fill();
+            }
+            // Body
+            ctx.fillStyle = '#eee';
+            ctx.beginPath();
+            ctx.moveTo(30, 0); // Tip
+            ctx.quadraticCurveTo(60, 30, 60, 80); // Right side
+            ctx.lineTo(60, 100); 
+            ctx.lineTo(0, 100);
+            ctx.lineTo(0, 80);
+            ctx.quadraticCurveTo(0, 30, 30, 0); // Left side
+            ctx.fill();
+            // Fins
+            ctx.fillStyle = '#d32f2f';
+            ctx.beginPath(); ctx.moveTo(0, 80); ctx.lineTo(-15, 110); ctx.lineTo(0, 100); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(60, 80); ctx.lineTo(75, 110); ctx.lineTo(60, 100); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(30, 40); ctx.lineTo(30, 90); ctx.stroke(); // Center line seam
+            // Window
+            ctx.fillStyle = '#4fc3f7'; ctx.beginPath(); ctx.arc(30, 40, 15, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 3; ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // --- SETUP & UTILS ---
     function resize() {
         const winW = window.innerWidth;
         const winH = window.innerHeight;
@@ -412,18 +499,31 @@
     };
 
     function updateBackground(camY) {
+        // Handle transitions between planets (Flash white/black effect or just reset)
+        if (transitionState === 'ROCKET_LAUNCH') {
+             // Fade to black as we go higher
+             const p = Math.min(rocket.y / -2000, 1); // Simple fade
+             document.getElementById('game-container').style.background = `rgb(${10*(1-p)},${10*(1-p)},${20*(1-p)})`;
+             return;
+        }
+
         const h = Math.max(0, camY);
-        const dayTop = [224, 247, 250], dayBot = [135, 206, 235];
-        const nightTop = [10, 10, 20], nightBot = [0, 0, 0];
-        const p = Math.min(h / 12000, 1);
-        const rT = Math.round(dayTop[0] + (nightTop[0] - dayTop[0]) * p);
-        const gT = Math.round(dayTop[1] + (nightTop[1] - dayTop[1]) * p);
-        const bT = Math.round(dayTop[2] + (nightTop[2] - dayTop[2]) * p);
-        const rB = Math.round(dayBot[0] + (nightBot[0] - dayBot[0]) * p);
-        const gB = Math.round(dayBot[1] + (nightBot[1] - dayBot[1]) * p);
-        const bB = Math.round(dayBot[2] + (nightBot[2] - dayBot[2]) * p);
+        // Fallback added here
+        const theme = currentTheme || THEMES[0]; 
+        
+        const p = Math.min(h / NIGHT_HEIGHT_THRESHOLD, 1);
+        
+        const rT = Math.round(theme.dayTop[0] + (theme.nightTop[0] - theme.dayTop[0]) * p);
+        const gT = Math.round(theme.dayTop[1] + (theme.nightTop[1] - theme.dayTop[1]) * p);
+        const bT = Math.round(theme.dayTop[2] + (theme.nightTop[2] - theme.dayTop[2]) * p);
+        
+        const rB = Math.round(theme.dayBot[0] + (theme.nightBot[0] - theme.dayBot[0]) * p);
+        const gB = Math.round(theme.dayBot[1] + (theme.nightBot[1] - theme.dayBot[1]) * p);
+        const bB = Math.round(theme.dayBot[2] + (theme.nightBot[2] - theme.dayBot[2]) * p);
+        
         const container = document.getElementById('game-container');
         container.style.background = `linear-gradient(to top, rgb(${rT},${gT},${bT}), rgb(${rB},${gB},${bB}))`;
+        
         if (p > 0.6) document.body.classList.add('night-hud');
         else document.body.classList.remove('night-hud');
     }
@@ -625,8 +725,11 @@
         constructor() {
             this.w = 40; this.h = 40; this.x = canvas.width/2 - 20; this.y = canvas.height - GROUND_HEIGHT - this.h; 
             this.vx = 0; this.vy = 0; this.grounded = false; this.facingRight = true; this.readyForSuperJump = false; this.canJumpRelease = true;
+            this.visible = true;
+            this.scale = 1;
         }
         update(dt) {
+            if (!this.visible) return;
             if (keys.left) { this.vx = -SPEED; this.facingRight = false; }
             else if (keys.right) { this.vx = SPEED; this.facingRight = true; }
             else this.vx *= Math.pow(0.8, dt); 
@@ -639,9 +742,12 @@
             if (this.x < 0) this.x = 0; if (this.x + this.w > canvas.width) this.x = canvas.width - this.w;
         }
         draw() {
+            if (!this.visible) return;
             ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2); 
+            ctx.scale(this.scale, this.scale);
             if (multiplier > 1) { ctx.shadowBlur = 20; ctx.shadowColor = multiplier >= 3 ? '#FFD700' : '#00E5FF'; }
-            ctx.fillStyle = this.readyForSuperJump ? '#FFD700' : currentTheme.player;
+            // Fixed: Added fallback
+            ctx.fillStyle = this.readyForSuperJump ? '#FFD700' : (currentTheme ? currentTheme.player : '#FF5722');
             ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
             ctx.fillStyle = 'white'; const o = this.facingRight ? 8 : -8;
             ctx.fillRect(o - 2, -10, 8, 8); ctx.fillRect(o - 12, -10, 8, 8);
@@ -651,9 +757,11 @@
     }
 
     class Platform {
-        constructor(x, y, value, isCorrect, isPermanent = false) { 
-            this.x = x; this.y = y; this.w = platformWidth; this.h = 30; this.value = value;
-            this.isCorrect = isCorrect; this.isPermanent = isPermanent; this.breaking = false; this.broken = false; this.isSolved = false; this.breakTimer = 0; this.shakeOffset = 0;
+        constructor(x, y, value, isCorrect, isPermanent = false, type = 'normal') { 
+            this.x = x; this.y = y; this.w = (type === 'winner') ? 250 : platformWidth; this.h = 30; this.value = value;
+            this.isCorrect = isCorrect; this.isPermanent = isPermanent; 
+            this.type = type; // normal, winner
+            this.breaking = false; this.broken = false; this.isSolved = false; this.breakTimer = 0; this.shakeOffset = 0;
         }
         update(player, dt) {
             if (this.broken && !this.isPermanent) return; 
@@ -669,6 +777,15 @@
             }
         }
         triggerEffect(player) {
+            if (this.type === 'winner') {
+                if (transitionState === 'SPAWNED_WIN') {
+                    transitionState = 'LANDED_WIN';
+                    player.vx = 0;
+                    startLevelTransitionSequence(this);
+                }
+                return;
+            }
+
             if (this.isPermanent) { player.readyForSuperJump = false; isInvulnerable = false; if (gameOverPending) gameOver(); return; }
             if (this.isCorrect) {
                 if (gameOverPending) return; isInvulnerable = false;
@@ -688,16 +805,37 @@
             }
 
             if (streak === 5) activateMultiplier(2); else if (streak === 10) activateMultiplier(3);
-            createParticles(this.x + this.w/2, this.y + cameraY, currentTheme.particle); 
-            player.vy = 0; player.readyForSuperJump = true; this.isSolved = true; generateLevel();
+            const pColor = currentTheme ? currentTheme.particle : "#2ecc71";
+            createParticles(this.x + this.w/2, this.y + cameraY, pColor); 
+            player.vy = 0; player.readyForSuperJump = true; this.isSolved = true; 
+            
+            // Check for level progression condition
+            if (cameraY >= NIGHT_HEIGHT_THRESHOLD) {
+                jumpsInNightMode++;
+            }
+            
+            generateLevel();
         }
         handleWrongAnswer() { streak = 0; streakEl.innerText = streak; multiplier = 1; updateMultiplierUI(); deductLife(); }
         draw() {
             if (this.broken && !this.isPermanent) return; 
             ctx.save(); ctx.translate(this.shakeOffset, 0);
-            ctx.fillStyle = this.isPermanent ? currentTheme.platformSafe : (this.breaking ? '#e74c3c' : currentTheme.platformNormal); 
-            ctx.fillRect(this.x, this.y, this.w, this.h);
-            if (!this.isPermanent) { ctx.fillStyle = 'white'; ctx.font = 'bold 20px Roboto'; ctx.textAlign = 'center'; ctx.fillText(this.value, this.x + this.w/2, this.y + 20); }
+            
+            if (this.type === 'winner') {
+                // Gold Platform
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+                // Sparkles
+                if(Math.random() < 0.1) createParticles(this.x + Math.random()*this.w, this.y, '#FFF');
+                ctx.fillStyle = '#FFF'; ctx.font = 'bold 16px Roboto'; ctx.textAlign = 'center'; 
+                ctx.fillText("ZIEL ERREICHT!", this.x + this.w/2, this.y + 20);
+            } else {
+                // Fixed: Added fallback
+                const theme = currentTheme || THEMES[0];
+                ctx.fillStyle = this.isPermanent ? theme.platformSafe : (this.breaking ? '#e74c3c' : theme.platform); 
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+                if (!this.isPermanent) { ctx.fillStyle = 'white'; ctx.font = 'bold 20px Roboto'; ctx.textAlign = 'center'; ctx.fillText(this.value, this.x + this.w/2, this.y + 20); }
+            }
             ctx.restore();
         }
     }
@@ -710,8 +848,10 @@
             this.emoji = this.getEmoji(type); this.size = 20 + Math.random() * 30; this.wobble = Math.random() * 6.28;
         }
         getEmoji(t) {
-            const e = { 'leaf':['🍂','🍃'], 'cloud':['☁️','🌥️'], 'bird':['🐦','🦅'], 'balloon':['🎈','🪁'], 'space':['🚀','🛰️'], 'star':['⭐','✨'] };
-            return e[t][Math.floor(Math.random()*e[t].length)];
+            // Fixed: Added fallback
+            const theme = currentTheme || THEMES[0];
+            const list = theme.emojis[t] || theme.emojis['leaf'];
+            return list[Math.floor(Math.random()*list.length)];
         }
         update(dt) { this.x += this.vx * dt; this.y += this.vy * dt; this.wobble += 0.05 * dt; if (this.x > canvas.width + 50) this.x = -50; if (this.x < -50) this.x = canvas.width + 50; }
         draw() { ctx.font = `${this.size}px Arial`; ctx.save(); ctx.translate(this.x, this.y); ctx.fillText(this.emoji, 0, 0); ctx.restore(); }
@@ -747,28 +887,94 @@
         hintContent.innerText = hint || "Konzentriere dich! Du schaffst das.";
     };
     
+    // --- UPDATED MATH LOGIC WITH DIFFICULTY SCALING ---
     const generateMathProblem = () => {
         const type = currentDifficulty.type;
+        const lvl = currentLevel;
+
         if (type === 'mult') {
-            let a = Math.floor(Math.random() * 10) + 1, b = Math.floor(Math.random() * 10) + 1;
+            let a, b;
+            if (lvl === 1) {
+                // Classic 1x1
+                a = Math.floor(Math.random() * 10) + 1;
+                b = Math.floor(Math.random() * 10) + 1;
+            } else {
+                // Harder: 2-digit * 1-digit (e.g., 12 * 4)
+                a = Math.floor(Math.random() * 14) + 12; // 12-25
+                b = Math.floor(Math.random() * 8) + 2;   // 2-9
+            }
             const ans = a * b;
             return { text: `${a} x ${b} = ?`, correct: ans, answers: [ans, ans+5, ans-5].sort(()=>Math.random()-0.5) };
-        } else if (type === 'div') {
-            let d = Math.floor(Math.random() * 10) + 1, r = Math.floor(Math.random() * 10) + 1;
+        } 
+        else if (type === 'div') {
+            let d, r;
+            if (lvl === 1) {
+                d = Math.floor(Math.random() * 10) + 1;
+                r = Math.floor(Math.random() * 10) + 1;
+            } else {
+                // Harder divisors: 2-10, 20, 30... 100
+                const possibleDivs = [2,3,4,5,6,7,8,9,10,20,30,40,50,60,70,80,90,100];
+                d = possibleDivs[Math.floor(Math.random() * possibleDivs.length)];
+                // Ensure result makes dividend 3-digit (100+) roughly
+                let minR = Math.ceil(100 / d);
+                if (minR < 5) minR = 5;
+                r = Math.floor(Math.random() * 20) + minR;
+            }
             return { text: `${d*r} : ${d} = ?`, correct: r, answers: [r, r+2, r-2].sort(()=>Math.random()-0.5) };
-        } else if (type === 'add') {
-            let a = Math.floor(Math.random() * 9) + 1, b = Math.floor(Math.random() * 9) + 1;
+        } 
+        else if (type === 'add') {
+            let a, b;
+            if (lvl === 1) {
+                a = Math.floor(Math.random() * 9) + 1;
+                b = Math.floor(Math.random() * 9) + 1;
+            } else {
+                // 2-digit addition
+                a = Math.floor(Math.random() * 80) + 15;
+                b = Math.floor(Math.random() * 80) + 15;
+            }
             const ans = a + b;
             return { text: `${a} + ${b} = ?`, correct: ans, answers: [ans, ans+2, ans-1].sort(()=>Math.random()-0.5) };
-        } else {
-            let a = Math.floor(Math.random() * 100) + 1; if (a % 10 === 0) a--;
-            let b = Math.floor(Math.random() * (a % 10)) + 1;
-            const ans = a - b;
+        } 
+        else { // Subtraction
+            let a, b, ans;
+            if (lvl === 1) {
+                a = Math.floor(Math.random() * 100) + 1; if (a % 10 === 0) a--;
+                b = Math.floor(Math.random() * (a % 10)) + 1; // No boundary crossing
+                ans = a - b;
+            } else {
+                // With boundary crossing (Zehnerübergang)
+                // a ends in 0-5, b ends in 6-9 (example logic) to force borrow
+                a = Math.floor(Math.random() * 70) + 20; 
+                let unitA = a % 10;
+                let unitB = Math.floor(Math.random() * (9 - unitA)) + unitA + 1; // Ensure unitB > unitA
+                if (unitB > 9) unitB = 9;
+                b = Math.floor(Math.random() * (a/2)) * 10 + unitB; // Random tens for b
+                if (b >= a) b = a - 5;
+                ans = a - b;
+            }
             return { text: `${a} - ${b} = ?`, correct: ans, answers: [ans, ans+1, ans-2].sort(()=>Math.random()-0.5) };
         }
     };
 
     const generateLevel = () => {
+        // WIN CONDITION CHECK
+        if (jumpsInNightMode >= JUMPS_IN_NIGHT_TO_WIN && transitionState === 'NONE') {
+            transitionState = 'SPAWNED_WIN';
+            // Spawn Win Platform
+            allPlatforms = allPlatforms.filter(p => p.isPermanent || p.y + cameraY > -100);
+            questionWrapper.classList.add('hidden'); // Hide question UI
+            
+            // Create a wide gold platform
+            const winPlat = new Platform(canvas.width/2 - 125, nextPlatformY, "ZIEL", true, false, 'winner');
+            allPlatforms.push(winPlat);
+            
+            // Add Confetti
+            for(let i=0; i<50; i++) {
+                particles.push(new Particle(Math.random()*canvas.width, nextPlatformY + Math.random()*200 - 300, `hsl(${Math.random()*360}, 100%, 50%)`));
+            }
+            return;
+        }
+
         questionStartTime = Date.now(); 
         allPlatforms = allPlatforms.filter(p => p.isPermanent || p.y + cameraY > -100);
         currentProblem = generateMathProblem();
@@ -780,6 +986,113 @@
         });
         nextPlatformY -= LEVEL_HEIGHT_GAP; 
     };
+
+    // --- TRANSITION ANIMATION LOGIC ---
+    function startLevelTransitionSequence(platform) {
+        // Player has landed on winning platform.
+        rocket = new Rocket(platform.x + platform.w/2 - 30, platform.y - 600); // Spawn rocket high above
+        gameRunning = true; // Keep loop running for animation
+    }
+
+    function updateLevelTransition(dt) {
+        if (!rocket) return;
+        
+        // 1. Rocket Descends
+        if (transitionState === 'LANDED_WIN') {
+            const targetY = (allPlatforms.find(p=>p.type==='winner')?.y || 0);
+            rocket.update(targetY, dt);
+            if (rocket.state === 'IDLE') {
+                transitionState = 'BOARDING';
+                player.vx = 0; player.vy = 0;
+            }
+        }
+        // 2. Player Boards (Moves to center and shrinks)
+        else if (transitionState === 'BOARDING') {
+            const centerX = rocket.x + rocket.w/2 - player.w/2;
+            const diff = centerX - player.x;
+            if (Math.abs(diff) > 2) player.x += diff * 0.1;
+            
+            // Fade out/shrink player
+            if (Math.abs(diff) < 20) {
+                player.scale -= 0.05 * dt;
+                player.y += 1 * dt; // walk into door
+                if (player.scale <= 0) {
+                    player.visible = false;
+                    player.scale = 0;
+                    transitionState = 'ROCKET_LAUNCH';
+                    rocket.state = 'LAUNCHING';
+                    // Trigger confetti burst
+                    for(let i=0; i<30; i++) particles.push(new Particle(rocket.x+30, rocket.y+80, '#FFF'));
+                }
+            }
+        }
+        // 3. Rocket Launches
+        else if (transitionState === 'ROCKET_LAUNCH') {
+            rocket.update(0, dt);
+            cameraY -= rocket.vy * dt; // Camera follows rocket up
+            
+            // When high enough, switch level
+            if (rocket.y + cameraY < -1000) {
+                transitionState = 'ROCKET_LANDING';
+                setupNextLevel();
+            }
+        }
+        // 4. Rocket Lands in New World
+        else if (transitionState === 'ROCKET_LANDING') {
+             // Move rocket down
+             rocket.y += 5 * dt;
+             // Stop when near ground
+             if (rocket.y >= canvas.height - GROUND_HEIGHT - 100) {
+                 rocket.y = canvas.height - GROUND_HEIGHT - 100;
+                 rocket.state = 'IDLE';
+                 transitionState = 'DISEMBARK';
+                 player.x = rocket.x + rocket.w/2 - player.w/2;
+                 player.y = rocket.y + 60;
+                 player.visible = true;
+             }
+        }
+        // 5. Disembark & Resume
+        else if (transitionState === 'DISEMBARK') {
+             player.scale += 0.05 * dt;
+             if (player.scale >= 1) {
+                 player.scale = 1;
+                 transitionState = 'ROCKET_AWAY';
+                 rocket.state = 'LAUNCHING';
+             }
+        }
+        else if (transitionState === 'ROCKET_AWAY') {
+            rocket.update(0, dt);
+            if (rocket.y < -200) {
+                // Rocket gone, game resumes
+                transitionState = 'NONE';
+                gameRunning = true;
+                rocket = null;
+                generateLevel(); // Start spawning new platforms
+            }
+        }
+    }
+
+    function setupNextLevel() {
+        currentLevel++;
+        levelDisplayEl.innerText = currentLevel;
+        currentThemeIndex++;
+        currentTheme = THEMES[currentThemeIndex % THEMES.length];
+        
+        // Reset World
+        cameraY = 0;
+        nextPlatformY = canvas.height - GROUND_HEIGHT - LEVEL_HEIGHT_GAP;
+        jumpsInNightMode = 0;
+        
+        // Clear old platforms, make new ground
+        allPlatforms = [];
+        const gy = canvas.height - GROUND_HEIGHT;
+        allPlatforms.push(new Platform(0, gy, 0, false, true)); allPlatforms[0].w = canvas.width;
+        
+        // Background reset happen in updateBackground based on cameraY=0
+        rocket.y = -500; // Put rocket high up for landing
+        rocket.state = 'DESCENDING';
+        rocket.flameSize = 0;
+    }
 
     const deductLife = () => { 
         if (gameOverPending || isInvulnerable) return; 
@@ -803,6 +1116,10 @@
     window.startGame = (idx) => {
         currentDifficulty = DIFFICULTIES[idx]; currentDifficultyIndex = idx; currentGravity = currentDifficulty.gravity; currentJumpForce = currentDifficulty.jump;
         score = 0; lives = 3; streak = 0; multiplier = 1; cameraY = 0; allPlatforms = []; backgroundObjects = []; gameOverPending = false; isInvulnerable = false;
+        currentLevel = 1; levelDisplayEl.innerText = 1; jumpsInNightMode = 0; transitionState = 'NONE'; rocket = null;
+        currentThemeIndex = 0;
+        currentTheme = THEMES[0]; // Reset theme
+        
         streakEl.innerText = 0; scoreEl.innerText = 0; livesEl.innerText = 3; updateMultiplierUI();
         const gy = canvas.height - GROUND_HEIGHT;
         allPlatforms.push(new Platform(0, gy, 0, false, true)); allPlatforms[0].w = canvas.width;
@@ -837,24 +1154,38 @@
         let dt = deltaTime / (1000 / 60); if (dt > 4) dt = 4;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        if (gameRunning && player) {
-            manageBackground(player.y); player.update(dt);
-            const climb = canvas.height * 0.4, fall = canvas.height * 0.6;
-            if (player.y < climb) { cameraY += climb - player.y; player.y = climb; }
-            else if (player.y > fall && cameraY > 0) { let d = Math.min(cameraY, player.y - fall); cameraY -= d; player.y -= d; }
-            
-            if (player.y > canvas.height) {
-                if (gameOverPending) gameOver();
-                else if (cameraY <= 0) loseLifeFallback();
+        if (gameRunning) {
+            // Normal Gameplay
+            if (transitionState === 'NONE' || transitionState === 'SPAWNED_WIN') {
+                if(player) {
+                    manageBackground(player.y); 
+                    player.update(dt);
+                    const climb = canvas.height * 0.4, fall = canvas.height * 0.6;
+                    if (player.y < climb) { cameraY += climb - player.y; player.y = climb; }
+                    else if (player.y > fall && cameraY > 0) { let d = Math.min(cameraY, player.y - fall); cameraY -= d; player.y -= d; }
+                    
+                    if (player.y > canvas.height) {
+                        if (gameOverPending) gameOver();
+                        else if (cameraY <= 0) loseLifeFallback();
+                    }
+                    allPlatforms.forEach(p => p.update(player, dt));
+                }
+            } else {
+                // Transition active
+                updateLevelTransition(dt);
             }
-            allPlatforms.forEach(p => p.update(player, dt));
+            
             particles.forEach((p, i) => { p.update(dt); if(p.life <= 0) particles.splice(i, 1); });
             backgroundObjects.forEach(b => b.update(dt));
             updateBackground(cameraY);
         }
+        
         ctx.save(); ctx.translate(0, cameraY); 
         backgroundObjects.forEach(b => b.draw()); allPlatforms.forEach(p => p.draw());
-        ctx.restore(); if(player) player.draw(); particles.forEach(p => p.draw());
+        if (rocket) rocket.draw(ctx);
+        ctx.restore(); 
+        if(player && transitionState !== 'ROCKET_LAUNCH') player.draw(); // Don't draw player inside rocket launch
+        particles.forEach(p => p.draw());
     }
 </script>
 </body>
