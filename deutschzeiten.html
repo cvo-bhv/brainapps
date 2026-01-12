@@ -14,10 +14,12 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 800px;
-            margin: 0 auto;
+            /* Container zentrieren, aber Breite für PDF flexibel halten */
+            margin: 0;
             padding: 20px;
             background-color: #f9f9f9;
+            display: flex;
+            justify-content: center;
         }
 
         .sheet-container {
@@ -26,7 +28,10 @@
             border-radius: 2px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             background: #ffffff; 
-            text-align: left; /* Linksbündig laut Anforderung */
+            text-align: left;
+            width: 100%;
+            max-width: 794px; /* A4 Breite in Pixeln bei 96 DPI ca. 794px */
+            box-sizing: border-box; /* Wichtig damit Padding nicht die Breite sprengt */
         }
 
         /* ÜBERSCHRIFTEN */
@@ -47,7 +52,7 @@
             padding: 8px;
             border-left: 5px solid #3498db;
             border-radius: 0 4px 4px 0;
-            page-break-inside: avoid; /* Verhindert Umbruch im Titel */
+            page-break-inside: avoid;
         }
 
         /* HEADER INFO */
@@ -63,7 +68,7 @@
         .task-block {
             margin-bottom: 30px;
             text-align: left;
-            page-break-inside: avoid; /* Versucht, Aufgaben nicht zu zerschneiden */
+            page-break-inside: avoid;
         }
 
         .task-instruction {
@@ -108,8 +113,8 @@
             background: #eaf2f8;
         }
 
-        .long-input { width: 100%; margin-top: 5px; display: block; }
-        .table-input { width: 90%; }
+        .long-input { width: 100%; margin-top: 5px; display: block; box-sizing: border-box;}
+        .table-input { width: 90%; box-sizing: border-box;}
         #studentName { border-bottom: 2px solid #3498db; background-color: #f0f8ff; font-weight: bold; }
 
         /* FEEDBACK (RICHTIG/FALSCH) */
@@ -135,7 +140,7 @@
         .hint-box, .tip-box {
             padding: 15px;
             margin-top: 15px;
-            border-radius: 12px; /* Abgerundete Ecken laut Design */
+            border-radius: 12px;
             page-break-inside: avoid;
         }
 
@@ -186,6 +191,8 @@
             padding: 20px;
             background: #ecf0f1;
             border-radius: 8px;
+            width: 100%; /* Volle Breite im Container */
+            box-sizing: border-box;
         }
 
         .check-button {
@@ -534,30 +541,31 @@
 
         const element = document.getElementById('sheetToPrint');
         
-        // Verbesserte Optionen für html2pdf
+        // OPTIONEN FÜR HTML2PDF (Angepasst gegen Abschneiden)
         const opt = {
-            margin:       10, // mm
+            margin:       [10, 10, 10, 10], // mm [oben, rechts, unten, links]
             filename:     'Arbeitsblatt_' + name + '.pdf',
             image:        { type: 'jpeg', quality: 0.98 },
             html2canvas:  { 
-                scale: 2, 
-                scrollY: 0, // WICHTIG: Verhindert leere Seiten am Anfang durch Scrolling
+                scale: 2, // Gute Qualität
+                scrollY: 0, 
+                scrollX: 0,
                 useCORS: true,
-                windowWidth: element.scrollWidth // Stellt sicher, dass die volle Breite genutzt wird
+                // WICHTIG: windowWidth auf den tatsächlichen Inhalt setzen, nicht Browserfenster
+                windowWidth: element.offsetWidth + 40 // +40 Puffer
             }, 
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            // Automatische Seitenumbrüche verbessern
             pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
         };
 
         try {
-            // 1. PDF als Base64 URI String erzeugen
+            // PDF generieren
             const pdfDataUri = await html2pdf().set(opt).from(element).output('datauristring');
             
-            // Base64 Header (data:application/pdf;base64,) entfernen für Google Apps Script
+            // Header entfernen
             const base64Content = pdfDataUri.split(',')[1];
 
-            // 2. Payload vorbereiten
+            // Payload
             const payload = {
                 name: name,
                 duration: duration,
@@ -565,7 +573,7 @@
                 pdfBase64: base64Content
             };
 
-            // 3. Senden (no-cors)
+            // Senden (no-cors)
             await fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors', 
@@ -575,7 +583,7 @@
                 body: JSON.stringify(payload)
             });
 
-            // Da no-cors keine Antwort liefert, gehen wir bei keinem Netzwerkfehler von Erfolg aus
+            // UI Feedback
             spinner.style.display = 'none';
             btnText.style.display = 'inline';
             document.getElementById('successOverlay').style.display = 'flex';
