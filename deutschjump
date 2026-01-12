@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Deutsch-Jump</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='512' height='512' viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='grad1' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23E0F7FA;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%2387CEEB;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='0' y='0' width='512' height='512' rx='100' ry='100' fill='url(%23grad1)' /%3E%3Ctext x='80' y='150' font-family='sans-serif' font-weight='900' font-size='100' fill='%232196F3' opacity='0.3' transform='rotate(-20 80 150)'%3EAa%3C/text%3E%3Ctext x='420' y='120' font-family='sans-serif' font-weight='900' font-size='100' fill='%232196F3' opacity='0.3' transform='rotate(20 420 120)'%3E?%3C/text%3E%3Cpath d='M-20 420 Q150 350 256 400 Q350 350 532 420 L532 530 L-20 530 Z' fill='%23ffffff' opacity='0.9' /%3E%3Cg transform='translate(156, 160)'%3E%3Crect x='0' y='0' width='200' height='200' rx='30' ry='30' fill='%23FF5722' stroke='white' stroke-width='12'/%3E%3C/g%3E%3Ctext x='256' y='470' font-family='sans-serif' font-weight='900' font-size='80' text-anchor='middle' fill='%23333'%3EDE%3C/text%3E%3C/svg%3E">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Roboto:wght@400;700;900&display=swap');
+
+        html, body { height: 100%; width: 100%; margin: 0; padding: 0; background-color: #202028; overflow: hidden; font-family: 'Roboto', sans-serif; touch-action: none; }
+        
+        #game-container { 
+            position: relative; 
+            width: 100%; 
+            height: 100vh;
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            background: linear-gradient(to top, #E0F7FA, #87CEEB); 
+            z-index: 1;
+        }
+        
+        canvas { display: block; box-shadow: 0 0 20px rgba(0,0,0,0.3); outline: none; z-index: 2; background: transparent; }
+        
+        #ui-layer { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            pointer-events: none; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            box-sizing: border-box; 
+            z-index: 5; 
+            padding-top: max(10px, env(safe-area-inset-top));
+            padding-left: max(10px, env(safe-area-inset-left));
+            padding-right: max(10px, env(safe-area-inset-right));
+            padding-bottom: max(0px, env(safe-area-inset-bottom));
+        }
+        
+        .hud-left { display: flex; flex-direction: column; align-items: flex-start; }
+        .hud-text { font-family: 'Fredoka One', cursive; font-size: clamp(1rem, 4vw, 2rem); color: #333; text-shadow: 2px 2px 0px #fff; margin-bottom: 2px; transition: color 0.5s; }
+        .hud-subtext { font-family: 'Fredoka One', cursive; font-size: clamp(0.8rem, 3vw, 1.5rem); color: #FF5722; text-shadow: 1px 1px 0px #fff; margin-bottom: 2px; }
+        .hud-record { font-family: 'Fredoka One', cursive; font-size: clamp(0.7rem, 2.5vw, 1.1rem); color: #FF9800; text-shadow: 1px 1px 0px #fff; z-index: 10; margin-bottom: 1px; }
+        .hud-local { font-family: 'Fredoka One', cursive; font-size: clamp(0.7rem, 2.5vw, 1.1rem); color: #4CAF50; text-shadow: 1px 1px 0px #fff; z-index: 10; }
+        
+        /* Modus für Nacht-HUD-Kontrast */
+        .night-hud .hud-text { color: #fff; text-shadow: 2px 2px 0px #333; }
+        .night-hud .hud-subtext { text-shadow: 1px 1px 0px #333; }
+        .night-hud .hud-record { text-shadow: 1px 1px 0px #333; }
+        .night-hud .hud-local { text-shadow: 1px 1px 0px #333; }
+
+        .multiplier-anim { animation: pulseText 0.5s infinite alternate; color: #D32F2F; margin-left: 5px; font-size: clamp(1rem, 4vw, 1.5rem); display: inline-block; }
+        @keyframes pulseText { from { transform: scale(1); } to { transform: scale(1.2); } }
+        
+        .hud-center { pointer-events: auto; display: flex; gap: 5px; }
+        #restart-hud-btn, #hint-btn { 
+            font-family: 'Fredoka One', cursive; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s; 
+            font-size: clamp(0.7rem, 3vw, 1.2rem); padding: 5px 10px; color: white; 
+        }
+        #restart-hud-btn { background: #FF9800; box-shadow: 0 4px 0 #F57C00; }
+        #restart-hud-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #F57C00; }
+        #hint-btn { background: #1E90FF; box-shadow: 0 4px 0 #104E8B; }
+        #hint-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #104E8B; }
+        
+        #question-wrapper { position: absolute; top: 12%; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; z-index: 6; width: 90%; transition: opacity 0.5s; }
+        #bonus-timer { display: flex; gap: 5px; margin-bottom: 5px; }
+        .timer-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: opacity 0.3s, transform 0.3s; }
+        .timer-dot.inactive { opacity: 0.2; transform: scale(0.7); filter: grayscale(100%); }
+        
+        #question-content { display: flex; align-items: center; justify-content: center; }
+        #question-box { 
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 10px 25px; 
+            border-radius: 30px; 
+            border: 3px solid #333; 
+            font-family: 'Fredoka One', cursive; 
+            font-size: clamp(1.4rem, 6vw, 2.5rem); /* Slightly smaller for longer text */
+            color: #2c3e50; 
+            box-shadow: 0 6px 0 rgba(0,0,0,0.2); 
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            pointer-events: none; 
+            white-space: nowrap;
+        }
+        
+        #start-screen, #game-over-screen, #leaderboard-screen, #level-intro-screen { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0, 0, 0, 0.9); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            z-index: 10; 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y !important; 
+            padding-top: max(clamp(10px, 5vh, 60px), env(safe-area-inset-top)); 
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+            justify-content: center; 
+        }
+        
+        h1 { font-family: 'Fredoka One', cursive; color: #FFD700; font-size: clamp(1.8rem, 7vh, 4rem); margin-bottom: 2vh; text-shadow: 3px 3px 0 #333; text-align: center; flex-shrink: 0; padding: 0 10px; }
+        p { color: white; font-size: clamp(0.9rem, 2.5vh, 1.2rem); margin-bottom: 2vh; text-align: center; max-width: 600px; line-height: 1.4; padding: 0 15px; flex-shrink: 0; }
+        
+        #difficulty-container { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 12px; 
+            width: 90%; 
+            max-width: 600px; 
+            margin-bottom: 3vh; 
+            flex-shrink: 0; 
+        }
+
+        .diff-btn { 
+            background: #4CAF50; 
+            border: none; 
+            padding: 10px; 
+            font-size: clamp(0.9rem, 2.5vh, 1.4rem); 
+            font-family: 'Fredoka One', cursive; 
+            color: white; 
+            border-radius: 15px; 
+            cursor: pointer; 
+            box-shadow: 0 6px 0 #2E7D32; 
+            transition: transform 0.1s, box-shadow 0.1s; 
+            text-align: center; 
+            position: relative; 
+            width: 100%; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 80px;
+        }
+        .diff-btn span { display: block; font-size: 0.6em; font-family: 'Roboto', sans-serif; font-weight: normal; opacity: 0.9; margin-top: 5px; line-height: 1.2; }
+        .diff-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #2E7D32; }
+        .diff-4 { background: #E91E63; box-shadow: 0 6px 0 #C2185B; } 
+        .diff-1 { background: #8BC34A; box-shadow: 0 6px 0 #689F38; } 
+        .diff-2 { background: #2196F3; box-shadow: 0 6px 0 #1976D2; } 
+        .diff-3 { background: #FF9800; box-shadow: 0 6px 0 #F57C00; } 
+        .diff-5 { background: #9C27B0; box-shadow: 0 6px 0 #7B1FA2; grid-column: span 2; }
+        
+        #game-over-buttons { display: flex; flex-direction: column; gap: 10px; align-items: center; width: 100%; margin-top: 10px; flex-shrink: 0; }
+        
+        #game-over-btn, #leaderboard-btn, #save-score-btn, #retry-btn, #start-level-btn { background: #4CAF50; border: none; padding: clamp(10px, 2vh, 15px) 30px; font-size: clamp(1rem, 3.5vh, 2rem); font-family: 'Fredoka One', cursive; color: white; border-radius: 10px; cursor: pointer; box-shadow: 0 6px 0 #2E7D32; transition: transform 0.1s; margin-top: 5px; flex-shrink: 0; width: 80%; max-width: 400px; }
+        
+        #start-level-btn:disabled { background: #555; box-shadow: none; cursor: not-allowed; opacity: 0.5; }
+
+        #leaderboard-btn { background: #607D8B; box-shadow: 0 6px 0 #455A64; font-size: clamp(0.9rem, 2.8vh, 1.5rem); padding: 8px 20px; width: auto; max-width: 90%; margin-top: 10px; border: 4px solid transparent; }
+        #leaderboard-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #455A64; }
+        #retry-btn { background: #2196F3; box-shadow: 0 6px 0 #1976D2; }
+        #retry-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #1976D2; }
+
+        .keyboard-focus { transform: scale(1.05); border: 4px solid #FFF !important; box-shadow: 0 0 20px #FFD700 !important; z-index: 20; outline: none; }
+        
+        #leaderboard-header { display: flex; justify-content: space-between; padding: 10px 15px; color: #aaa; font-size: 0.9rem; font-family: 'Roboto', sans-serif; border-bottom: 1px solid rgba(255,255,255,0.2); width: 90%; max-width: 500px; margin-bottom: 5px; box-sizing: border-box; }
+        #leaderboard-list { list-style: none; padding: 0; width: 90%; max-width: 500px; margin-bottom: 20px; max-height: 60vh; overflow-y: auto; touch-action: pan-y !important; -webkit-overflow-scrolling: touch; }
+        #leaderboard-list::-webkit-scrollbar { width: 8px; }
+        #leaderboard-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        #leaderboard-list::-webkit-scrollbar-thumb { background: #FFD700; border-radius: 4px; }
+        .leaderboard-entry { display: flex; justify-content: space-between; background: rgba(255, 255, 255, 0.1); padding: 8px 12px; margin-bottom: 5px; border-radius: 8px; color: white; font-size: clamp(0.9rem, 2.5vw, 1.1rem); align-items: center; }
+        
+        .rank-badge { background: #FFD700; color: #333; width: 25px; height: 25px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; margin-right: 10px; font-family: 'Fredoka One', cursive; flex-shrink: 0; font-size: 0.9rem; }
+        .entry-name { flex-grow: 1; text-align: left; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; }
+        .entry-level { width: 80px; text-align: left; font-size: 0.8rem; color: #81D4FA; margin-right: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+        .entry-score { width: 50px; text-align: right; color: #FFD700; font-family: 'Fredoka One', cursive; font-size: 1.2rem; flex-shrink: 0; }
+        
+        #highscore-input-container { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; width: 100%; }
+        #player-name-input { padding: 10px 15px; font-size: 1.2rem; border-radius: 8px; border: 3px solid #FFD700; margin-bottom: 10px; text-align: center; font-family: 'Fredoka One', cursive; width: 70%; max-width: 300px; outline: none; pointer-events: auto; }
+        
+        .controls-selection { margin-top: 10px; text-align: center; flex-shrink: 0; padding-bottom: 20px; }
+        .toggle-container { display: flex; gap: 10px; justify-content: center; }
+        .mode-btn { background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-family: 'Fredoka One', cursive; font-size: 1rem; display: flex; align-items: center; gap: 6px; }
+        .mode-btn.active { background: #FFD700; color: #333; border-color: #FFD700; transform: scale(1.05); box-shadow: 0 4px 10px rgba(255, 215, 0, 0.4); }
+
+        #mobile-controls { position: absolute; bottom: 80px; left: 0; width: 100%; height: 120px; pointer-events: none; display: none; z-index: 50; padding-bottom: env(safe-area-inset-bottom); }
+        #mobile-controls.active { display: block !important; }
+        .touch-btn { position: absolute; width: clamp(60px, 18vw, 80px); height: clamp(60px, 18vw, 80px); background: rgba(255, 255, 255, 0.6); border-radius: 50%; border: 4px solid #333; pointer-events: auto; display: flex; justify-content: center; align-items: center; font-size: 1.8rem; color: #333; user-select: none; box-shadow: 0 4px 0 rgba(0,0,0,0.3); bottom: max(10px, env(safe-area-inset-bottom)); }
+        #btn-left { left: max(10px, env(safe-area-inset-left)); } 
+        #btn-right { left: calc(max(10px, env(safe-area-inset-left)) + clamp(70px, 22vw, 100px)); } 
+        #btn-jump { right: max(10px, env(safe-area-inset-right)); background: #FFD700; border-color: #CCAA00; color: #333; box-shadow: 0 4px 0 #CCAA00; }
+        
+        .hidden { display: none !important; }
+        #hint-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 100; }
+        #hint-box { background: white; padding: 20px; border-radius: 15px; max-width: 85%; text-align: center; }
+        #hint-box h2 { font-family: 'Fredoka One', cursive; color: #1E90FF; margin-top: 0; }
+        #hint-close-btn { background: #FF5722; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-family: 'Fredoka One', cursive; cursor: pointer; }
+        
+        #fullscreen-btn { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 20; background: rgba(0,0,0,0.3); border: 2px solid rgba(255,255,255,0.5); color: white; border-radius: 10px; padding: 5px 10px; cursor: pointer; font-family: 'Fredoka One', cursive; font-size: 0.8rem; }
+        
+        /* Level Intro Screen Styles */
+        #intro-content { background: white; padding: 25px; border-radius: 20px; max-width: 90%; width: 600px; text-align: center; color: #333; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-height: 85vh; overflow-y: auto; }
+        #intro-content h2 { font-family: 'Fredoka One', cursive; color: #1E90FF; margin-top: 0; margin-bottom: 15px; font-size: 1.8rem; }
+        .rule-section { text-align: left; margin-bottom: 20px; background: #f5f5f5; padding: 15px; border-radius: 10px; border-left: 5px solid #FF9800; font-family: 'Roboto', sans-serif; }
+        .rule-section strong { color: #E65100; display: block; margin-bottom: 5px; font-size: 1.1em; }
+        #sample-question-area { background: #E3F2FD; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 2px dashed #2196F3; }
+        #sample-question-text { font-family: 'Fredoka One', cursive; font-size: 1.3rem; margin: 10px 0; color: #1565C0; }
+        #sample-options { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .sample-option-btn { background: white; border: 2px solid #2196F3; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-family: 'Roboto', sans-serif; font-weight: bold; color: #1565C0; transition: all 0.2s; }
+        .sample-option-btn:hover { background: #BBDEFB; }
+        .sample-option-btn.correct { background: #4CAF50; color: white; border-color: #388E3C; }
+        .sample-option-btn.wrong { background: #F44336; color: white; border-color: #D32F2F; animation: shake 0.4s; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+    </style>
+</head>
+<body class="day-hud">
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="hud-left">
+            <div class="hud-text">Punkte: <span id="score">0</span> <span id="multiplier-display" class="multiplier-anim hidden">x2</span></div>
+            <div class="hud-subtext">Level: <span id="level-display">1</span> | Streak: <span id="streak">0</span> 🔥</div>
+            <div class="hud-local">Dein Rekord: <span id="local-record">0</span></div>
+            <div class="hud-record">Online-Rekord: <span id="highscore">0</span></div>
+        </div>
+        <div class="hud-center">
+            <button id="hint-btn" onclick="getHint()">Tipp ✨</button>
+            <button id="restart-hud-btn" onclick="showStartScreen()">Menü</button>
+        </div>
+        <div class="hud-text" style="display:flex; flex-direction:column; align-items:flex-end;">
+            <div>Leben: <span id="lives">3</span></div>
+        </div>
+    </div>
+
+    <div id="question-wrapper" class="hidden">
+        <div id="bonus-timer">
+            <div class="timer-dot" style="background-color: #F44336;"></div>
+            <div class="timer-dot" style="background-color: #FF9800;"></div>
+            <div class="timer-dot" style="background-color: #FFEB3B;"></div>
+            <div class="timer-dot" style="background-color: #8BC34A;"></div>
+            <div class="timer-dot" style="background-color: #4CAF50;"></div>
+        </div>
+        <div id="question-content">
+            <div id="question-box">Frage?</div>
+        </div>
+    </div>
+
+    <div id="start-screen">
+        <button id="fullscreen-btn" onclick="toggleFullscreen()">⛶ Vollbild</button>
+        <h1>Deutsch Jump</h1>
+        <div id="difficulty-container">
+            <button class="diff-btn diff-1" onclick="setupGameSession(0)">Pronomen 👤<span>Ich, Du, Wir, ...</span></button>
+            <button class="diff-btn diff-2" onclick="setupGameSession(1)">Präsens ⏱️<span>Gegenwart</span></button>
+            <button class="diff-btn diff-3" onclick="setupGameSession(2)">Präteritum 📜<span>Vergangenheit</span></button>
+            <button class="diff-btn diff-4" onclick="setupGameSession(3)">Perfekt ✅<span>Abgeschlossen</span></button>
+            <button class="diff-btn diff-5" onclick="setupGameSession(4)">Profi-Mix 🎲<span>Alles gemischt</span></button>
+        </div>
+        <button id="leaderboard-btn" onclick="showLeaderboard()">🏆 Online-Ruhmeshalle</button>
+        <div class="controls-selection">
+            <div class="toggle-container">
+                <button id="btn-mode-keyboard" class="mode-btn" onclick="setControlMode('keyboard')">⌨️ Tastatur</button>
+                <button id="btn-mode-touch" class="mode-btn" onclick="setControlMode('touch')">📱 Touch</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="level-intro-screen" class="hidden">
+        <div id="intro-content">
+            <h2 id="intro-title">Level Titel</h2>
+            <div id="intro-rules" class="rule-section">Regeln...</div>
+            
+            <div id="sample-question-area">
+                <div style="font-weight:bold; color:#555; font-size:0.9em;">Teste dich kurz:</div>
+                <div id="sample-question-text">Frage?</div>
+                <div id="sample-options"></div>
+            </div>
+
+            <button id="start-level-btn" onclick="realStartGame()" disabled>Erst Frage beantworten! 🔒</button>
+            <br>
+            <button onclick="showStartScreen()" style="background:transparent; color:#888; border:none; margin-top:10px; font-size:0.9em; cursor:pointer; box-shadow:none;">Zurück</button>
+        </div>
+    </div>
+    
+    <div id="leaderboard-screen" class="hidden">
+        <h1>Online-Ruhmeshalle 🏆</h1>
+        <p id="leaderboard-loading">Lade Daten...</p>
+        <div id="leaderboard-header">
+            <div style="width: 30px; text-align: center;">#</div>
+            <div style="flex-grow: 1; text-align: left;">Name</div>
+            <div style="width: 90px; text-align: left;">Level</div>
+            <div style="width: 60px; text-align: right;">Pkt</div>
+        </div>
+        <ul id="leaderboard-list"></ul>
+        <button onclick="showStartScreen()" style="background: #607D8B; box-shadow: 0 6px 0 #455A64; padding: 10px 30px; border:none; border-radius:10px; color:white; font-family:'Fredoka One', cursive; font-size:1.5rem; cursor:pointer;">Zurück</button>
+    </div>
+
+    <div id="game-over-screen" class="hidden">
+        <h1>Spiel Vorbei!</h1>
+        <p>Du hast <span id="final-score" style="color: #FFD700; font-weight: bold;">0</span> Punkte erreicht.</p>
+        <div id="highscore-input-container" class="hidden">
+            <p style="color: #FFD700; font-size: 1.4rem;">Gut gemacht! 🌟</p>
+            <input type="text" id="player-name-input" placeholder="Dein Name" maxlength="10">
+            <button id="save-score-btn" onclick="submitHighscore()">Online Speichern 💾</button>
+        </div>
+        <p id="motivation-text">Sprach-Coach analysiert... ✨</p>
+        <div id="game-over-buttons">
+            <button id="retry-btn" onclick="restartLevel()">Nochmal spielen 🔄</button>
+            <button id="game-over-btn" onclick="showStartScreen()">Zum Menü</button>
+        </div>
+    </div>
+
+    <div id="hint-overlay" class="hidden">
+        <div id="hint-box">
+            <h2>Grammatik-Tipp</h2>
+            <div id="hint-content"></div>
+            <button id="hint-close-btn" onclick="closeHint()">Schließen</button>
+        </div>
+    </div>
+
+    <div id="mobile-controls">
+        <div id="btn-left" class="touch-btn">⬅️</div>
+        <div id="btn-right" class="touch-btn">➡️</div>
+        <div id="btn-jump" class="touch-btn">⬆️</div>
+    </div>
+</div>
+
+<script>
+    // FÜGE HIER DEINE NEUE APP-SCRIPT-URL EIN:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzZi5xRzkfv0wP0VgDSGPxmB69sBEOix74zDV68oEkyrnxjjWNqzfUtn9KX_nbmYaRi1Q/exec"; 
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const highscoreEl = document.getElementById('highscore'); 
+    const localRecordEl = document.getElementById('local-record');
+    const streakEl = document.getElementById('streak');
+    const levelDisplayEl = document.getElementById('level-display');
+    const multiplierEl = document.getElementById('multiplier-display');
+    const livesEl = document.getElementById('lives');
+    const questionWrapper = document.getElementById('question-wrapper');
+    const questionEl = document.getElementById('question-box');
+    const startScreen = document.getElementById('start-screen');
+    const levelIntroScreen = document.getElementById('level-intro-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const leaderboardScreen = document.getElementById('leaderboard-screen');
+    const finalScoreEl = document.getElementById('final-score');
+    const motivationTextEl = document.getElementById('motivation-text'); 
+    const hintOverlay = document.getElementById('hint-overlay');
+    const hintContent = document.getElementById('hint-content');
+    const highscoreInputContainer = document.getElementById('highscore-input-container');
+    const playerNameInput = document.getElementById('player-name-input');
+    const leaderboardList = document.getElementById('leaderboard-list');
+    const gameOverButtons = document.getElementById('game-over-buttons');
+    const leaderboardLoading = document.getElementById('leaderboard-loading');
+    const btnModeKeyboard = document.getElementById('btn-mode-keyboard');
+    const btnModeTouch = document.getElementById('btn-mode-touch');
+    const introTitle = document.getElementById('intro-title');
+    const introRules = document.getElementById('intro-rules');
+    const sampleQuestionText = document.getElementById('sample-question-text');
+    const sampleOptions = document.getElementById('sample-options');
+    const startLevelBtn = document.getElementById('start-level-btn');
+
+    let menuNavElements = [];
+    let menuNavIndex = -1;
+
+    const API_KEY = ""; 
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+
+    const BASE_GRAVITY = 0.6;
+    const BASE_JUMP_FORCE = -11.9; 
+    const SUPER_JUMP_FORCE = -17; 
+    const SPEED = 11; 
+    const GROUND_HEIGHT = 50;
+    const LEVEL_HEIGHT_GAP = 130; 
+    let platformWidth = 150;
+
+    // --- GAME CONSTANTS & STATE ---
+    const NIGHT_HEIGHT_THRESHOLD = 11000; 
+    const JUMPS_IN_NIGHT_TO_WIN = 3; 
+
+    // DIFFICULTY / LEVEL MAPPING
+    const DIFFICULTIES = [
+        { id: 0, label: "Pronomen", gravity: 0.6, jump: -11.9, type: 'pronoun' },
+        { id: 1, label: "Präsens", gravity: 0.6, jump: -11.9, type: 'pres' },
+        { id: 2, label: "Präteritum", gravity: 0.6, jump: -11.9, type: 'prat' },
+        { id: 3, label: "Perfekt", gravity: 0.6, jump: -11.9, type: 'perf' },
+        { id: 4, label: "Profi-Mix", gravity: 0.6, jump: -11.9, type: 'mix' }
+    ];
+    
+    // --- RULES CONTENT ---
+    const LEVEL_RULES = {
+        'pronoun': `
+            <strong>Die Personalpronomen</strong>
+            Das sind kurze Wörter für Namen. Wir benutzen sie, damit wir Namen nicht immer wiederholen müssen.
+            <br><i>Beispiel: <b>Lisa</b> lacht. -> <b>Sie</b> lacht.</i>
+            <br><br>
+            <strong>Wer ist gemeint?</strong><br>
+            1. Person: <b>ich</b> (Ich spreche)<br>
+            2. Person: <b>du</b> (Du hörst zu)<br>
+            3. Person: <b>er/sie/es</b> (Wir reden über jemanden)<br>
+            <br>Viele (Mehrzahl): <b>wir</b>, <b>ihr</b>, <b>sie</b>.
+        `,
+        'pres': `
+            <strong>Das Präsens (Das Jetzt)</strong>
+            Das passiert <b>jetzt</b> gerade. Oder es passiert immer wieder (z.B. jeden Tag).
+            <br><i>Beispiel: Ich <b>spiele</b> jetzt Fußball.</i>
+            <br><br>
+            <strong>So baust du es:</strong><br>
+            Nimm das Wort (z.B. geh-) und hänge das Ende dran:<br>
+            ich geh-<b>e</b><br>
+            du geh-<b>st</b><br>
+            er/sie/es geh-<b>t</b><br>
+            wir geh-<b>en</b><br>
+            ihr geh-<b>t</b><br>
+            sie geh-<b>en</b>
+        `,
+        'prat': `
+            <strong>Das Präteritum (Geschichten-Zeit)</strong>
+            Das ist die <b>Schreib-Vergangenheit</b>. Wir benutzen sie meistens in Geschichten und Büchern (z.B. im Märchen).
+            <br><i>Beispiel: Gestern <b>spielte</b> ich Fußball.</i>
+            <br><br>
+            <strong>Aufgepasst:</strong><br>
+            Manchmal klingt das Wort ganz anders!<br>
+            fahren -> f<b>u</b>hr<br>
+            sehen -> s<b>a</b>h<br>
+            kommen -> k<b>a</b>m
+        `,
+        'perf': `
+            <strong>Das Perfekt (Erzähl-Zeit)</strong>
+            Das ist die <b>Sprech-Vergangenheit</b>. So reden wir, wenn wir erzählen, was wir gemacht haben.
+            <br><i>Beispiel: Ich <b>habe</b> Fußball <b>gespielt</b>.</i>
+            <br><br>
+            <strong>Es besteht aus zwei Teilen:</strong><br>
+            1. Ein Helfer: <b>haben</b> oder <b>sein</b><br>
+            2. Das Tun-Wort mit <b>ge-</b> (z.B. <b>ge</b>sagt, <b>ge</b>laufen)<br>
+        `,
+        'mix': `
+            <strong>Profi-Modus</strong>
+            Hier kommt alles durcheinander!
+            <br><br>
+            Schau genau hin:<br>
+            - Wer ist gemeint? (ich, du...)<br>
+            - Passiert es jetzt? (Präsens)<br>
+            - Ist es eine Geschichte? (Präteritum)<br>
+            - Hat es "ge-" und "haben/sein"? (Perfekt)<br>
+            <br>Du schaffst das!
+        `
+    };
+
+    const THEMES = [
+        { // Level 1: Earth (Blue -> Black)
+            dayTop: [224, 247, 250], dayBot: [135, 206, 235],
+            nightTop: [10, 10, 20], nightBot: [0, 0, 0],
+            emojis: { 'leaf':['🍂','🍃'], 'cloud':['☁️','🌥️'], 'bird':['🐦','🦅'], 'balloon':['🎈','🪁'], 'space':['🚀','🛰️'], 'star':['⭐','✨'] },
+            platform: "#8e44ad", platformSafe: "#4CAF50", player: "#FF5722", particle: "#2ecc71"
+        },
+        { // Level 2: Mars (Red -> Dark Purple/Black)
+            dayTop: [255, 204, 188], dayBot: [229, 115, 115], // Reddish
+            nightTop: [49, 27, 146], nightBot: [0, 0, 0], // Deep Purple Space
+            emojis: { 'leaf':['☄️','🪨'], 'cloud':['🌪️','🌫️'], 'bird':['🛸','👽'], 'balloon':['🛰️','👾'], 'space':['🪐','🌌'], 'star':['✨','🌟'] },
+            platform: "#c62828", platformSafe: "#ff8f00", player: "#00E5FF", particle: "#FFD700"
+        },
+        { // Level 3: Alien (Green -> Black)
+            dayTop: [220, 237, 200], dayBot: [139, 195, 74],
+            nightTop: [0, 77, 64], nightBot: [0, 0, 0],
+            emojis: { 'leaf':['🦠','🌱'], 'cloud':['🧪','🟢'], 'bird':['🛸','🤖'], 'balloon':['👾','👁️'], 'space':['🌠','🌌'], 'star':['✨','💫'] },
+            platform: "#2e7d32", platformSafe: "#00acc1", player: "#E040FB", particle: "#64FFDA"
+        }
+    ];
+    
+    // --- GRAMMAR DATA ---
+    const PRONOUNS = [
+        { l: "1. Person Singular", w: "ich" },
+        { l: "2. Person Singular", w: "du" },
+        { l: "3. Person Singular", w: "er/sie/es" },
+        { l: "1. Person Plural", w: "wir" },
+        { l: "2. Person Plural", w: "ihr" },
+        { l: "3. Person Plural", w: "sie" }
+    ];
+
+    const VERBS = [
+        { i: 'sein', pres: ['bin', 'bist', 'ist', 'sind', 'seid', 'sind'], prat: ['war', 'warst', 'war', 'waren', 'wart', 'waren'], perf: ['bin gewesen', 'bist gewesen', 'ist gewesen', 'sind gewesen', 'seid gewesen', 'sind gewesen'] },
+        { i: 'haben', pres: ['habe', 'hast', 'hat', 'haben', 'habt', 'haben'], prat: ['hatte', 'hattest', 'hatte', 'hatten', 'hattet', 'hatten'], perf: ['habe gehabt', 'hast gehabt', 'hat gehabt', 'haben gehabt', 'habt gehabt', 'haben gehabt'] },
+        { i: 'gehen', pres: ['gehe', 'gehst', 'geht', 'gehen', 'geht', 'gehen'], prat: ['ging', 'gingst', 'ging', 'gingen', 'gingt', 'gingen'], perf: ['bin gegangen', 'bist gegangen', 'ist gegangen', 'sind gegangen', 'seid gegangen', 'sind gegangen'] },
+        { i: 'machen', pres: ['mache', 'machst', 'macht', 'machen', 'macht', 'machen'], prat: ['machte', 'machtest', 'machte', 'machten', 'machtet', 'machten'], perf: ['habe gemacht', 'hast gemacht', 'hat gemacht', 'haben gemacht', 'habt gemacht', 'haben gemacht'] },
+        { i: 'sehen', pres: ['sehe', 'siehst', 'sieht', 'sehen', 'seht', 'sehen'], prat: ['sah', 'sahst', 'sah', 'sahen', 'saht', 'sahen'], perf: ['habe gesehen', 'hast gesehen', 'hat gesehen', 'haben gesehen', 'habt gesehen', 'haben gesehen'] },
+        { i: 'kommen', pres: ['komme', 'kommst', 'kommt', 'kommen', 'kommt', 'kommen'], prat: ['kam', 'kamst', 'kam', 'kamen', 'kamt', 'kamen'], perf: ['bin gekommen', 'bist gekommen', 'ist gekommen', 'sind gekommen', 'seid gekommen', 'sind gekommen'] },
+        { i: 'essen', pres: ['esse', 'isst', 'isst', 'essen', 'esst', 'essen'], prat: ['aß', 'aßest', 'aß', 'aßen', 'aßt', 'aßen'], perf: ['habe gegessen', 'hast gegessen', 'hat gegessen', 'haben gegessen', 'habt gegessen', 'haben gegessen'] },
+        { i: 'schlafen', pres: ['schlafe', 'schläfst', 'schläft', 'schlafen', 'schlaft', 'schlafen'], prat: ['schlief', 'schliefst', 'schlief', 'schliefen', 'schlieft', 'schliefen'], perf: ['habe geschlafen', 'hast geschlafen', 'hat geschlafen', 'haben geschlafen', 'habt geschlafen', 'haben geschlafen'] },
+        { i: 'fahren', pres: ['fahre', 'fährst', 'fährt', 'fahren', 'fahrt', 'fahren'], prat: ['fuhr', 'fuhrst', 'fuhr', 'fuhren', 'fuhrt', 'fuhren'], perf: ['bin gefahren', 'bist gefahren', 'ist gefahren', 'sind gefahren', 'seid gefahren', 'sind gefahren'] },
+        { i: 'laufen', pres: ['laufe', 'läufst', 'läuft', 'laufen', 'lauft', 'laufen'], prat: ['lief', 'liefst', 'lief', 'liefen', 'lieft', 'liefen'], perf: ['bin gelaufen', 'bist gelaufen', 'ist gelaufen', 'sind gelaufen', 'seid gelaufen', 'sind gelaufen'] },
+        { i: 'schwimmen', pres: ['schwimme', 'schwimmst', 'schwimmt', 'schwimmen', 'schwimmt', 'schwimmen'], prat: ['schwamm', 'schwammst', 'schwamm', 'schwammen', 'schwammt', 'schwammen'], perf: ['bin geschwommen', 'bist geschwommen', 'ist geschwommen', 'sind geschwommen', 'seid geschwommen', 'sind geschwommen'] },
+        { i: 'lesen', pres: ['lese', 'liest', 'liest', 'lesen', 'lest', 'lesen'], prat: ['las', 'lasest', 'las', 'lasen', 'last', 'lasen'], perf: ['habe gelesen', 'hast gelesen', 'hat gelesen', 'haben gelesen', 'habt gelesen', 'haben gelesen'] },
+        { i: 'schreiben', pres: ['schreibe', 'schreibst', 'schreibt', 'schreiben', 'schreibt', 'schreiben'], prat: ['schrieb', 'schriebst', 'schrieb', 'schrieben', 'schriebt', 'schrieben'], perf: ['habe geschrieben', 'hast geschrieben', 'hat geschrieben', 'haben geschrieben', 'habt geschrieben', 'haben geschrieben'] },
+        { i: 'trinken', pres: ['trinke', 'trinkst', 'trinkt', 'trinken', 'trinkt', 'trinken'], prat: ['trank', 'trankst', 'trank', 'tranken', 'trankt', 'tranken'], perf: ['habe getrunken', 'hast getrunken', 'hat getrunken', 'haben getrunken', 'habt getrunken', 'haben getrunken'] }
+    ];
+
+    var currentTheme = THEMES[0];
+    let currentDifficulty = DIFFICULTIES[0];
+    let currentDifficultyIndex = 0;
+    let currentLevel = 1;
+    let currentThemeIndex = 0;
+    
+    let currentGravity = BASE_GRAVITY;
+    let currentJumpForce = BASE_JUMP_FORCE;
+    let useTouchControls = false; 
+    let gameRunning = false;
+    let score = 0;
+    let highscore = 0; 
+    let localRecord = 0;
+    let lives = 3;
+    let mistakesLog = []; 
+    let currentProblem = null;
+    let particles = [];
+    let allPlatforms = [];
+    let backgroundObjects = []; 
+    let nextPlatformY = 0; 
+    let cameraY = 0;       
+    let gameLoopId = null; 
+    let gameOverPending = false; 
+    let questionStartTime = 0; 
+    let isInvulnerable = false; 
+    let player = null; 
+    let streak = 0;
+    let multiplier = 1;
+    let cachedLeaderboard = [];
+    let rocket = null; 
+
+    // State Tracking
+    let jumpsInNightMode = 0;
+    let transitionState = 'NONE'; 
+
+    class Rocket {
+        constructor(x, y) {
+            this.x = x; this.y = y; this.w = 60; this.h = 100;
+            this.state = 'DESCENDING'; 
+            this.vy = 2; 
+            this.flameSize = 0;
+        }
+        update(targetY, dt) {
+            if (this.state === 'DESCENDING') {
+                if (this.y < targetY - this.h) { this.y += this.vy * 2 * dt; }
+                else { this.y = targetY - this.h; this.state = 'IDLE'; }
+            } else if (this.state === 'LAUNCHING') {
+                this.vy += 0.5 * dt;
+                this.y -= this.vy * dt;
+                this.flameSize = Math.random() * 20 + 20;
+                if(Math.random() > 0.5) particles.push(new Particle(this.x + this.w/2, this.y + this.h + 10, '#ddd'));
+            }
+        }
+        draw(ctx) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            // Flames
+            if (this.state === 'LAUNCHING') {
+                ctx.fillStyle = '#ff5722';
+                ctx.beginPath(); ctx.moveTo(10, this.h); ctx.lineTo(30, this.h + this.flameSize); ctx.lineTo(50, this.h); ctx.fill();
+                ctx.fillStyle = '#ffeb3b';
+                ctx.beginPath(); ctx.moveTo(15, this.h); ctx.lineTo(30, this.h + this.flameSize*0.7); ctx.lineTo(45, this.h); ctx.fill();
+            }
+            // Body
+            ctx.fillStyle = '#eee';
+            ctx.beginPath();
+            ctx.moveTo(30, 0); 
+            ctx.quadraticCurveTo(60, 30, 60, 80); 
+            ctx.lineTo(60, 100); 
+            ctx.lineTo(0, 100);
+            ctx.lineTo(0, 80);
+            ctx.quadraticCurveTo(0, 30, 30, 0); 
+            ctx.fill();
+            // Fins
+            ctx.fillStyle = '#d32f2f';
+            ctx.beginPath(); ctx.moveTo(0, 80); ctx.lineTo(-15, 110); ctx.lineTo(0, 100); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(60, 80); ctx.lineTo(75, 110); ctx.lineTo(60, 100); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(30, 40); ctx.lineTo(30, 90); ctx.stroke(); 
+            // Window
+            ctx.fillStyle = '#4fc3f7'; ctx.beginPath(); ctx.arc(30, 40, 15, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 3; ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // --- SETUP & UTILS ---
+    function resize() {
+        const winW = window.innerWidth;
+        const winH = window.innerHeight;
+        canvas.width = winW; canvas.height = winH;
+        platformWidth = Math.min(150, winW / 3.2);
+        document.getElementById('game-container').style.height = winH + 'px';
+        updateMobileControlsVisibility(); 
+    }
+    window.addEventListener('resize', resize);
+    
+    function toggleFullscreen() {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            const docEl = document.documentElement;
+            if (docEl.requestFullscreen) docEl.requestFullscreen();
+            else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        }
+    }
+    
+    const setControlMode = (mode) => {
+        useTouchControls = (mode === 'touch');
+        localStorage.setItem('deutsch_jump_touch', useTouchControls ? 'true' : 'false');
+        updateControlButtonsUI();
+    };
+
+    const updateControlButtonsUI = () => {
+        if (useTouchControls) { btnModeTouch.classList.add('active'); btnModeKeyboard.classList.remove('active'); }
+        else { btnModeKeyboard.classList.add('active'); btnModeTouch.classList.remove('active'); }
+    };
+
+    const loadTouchControlsState = () => {
+        const stored = localStorage.getItem('deutsch_jump_touch');
+        if (stored !== null) useTouchControls = stored === 'true';
+        else useTouchControls = window.innerWidth <= 1024;
+        updateControlButtonsUI();
+        updateMobileControlsVisibility();
+    };
+
+    const updateMobileControlsVisibility = () => {
+        const ctrl = document.getElementById('mobile-controls');
+        if (ctrl) {
+            if (useTouchControls && gameRunning) ctrl.classList.add('active');
+            else ctrl.classList.remove('active');
+        }
+    };
+
+    function updateBackground(camY) {
+        if (transitionState === 'ROCKET_LAUNCH') {
+             const p = Math.min(rocket.y / -2000, 1); 
+             document.getElementById('game-container').style.background = `rgb(${10*(1-p)},${10*(1-p)},${20*(1-p)})`;
+             return;
+        }
+
+        const h = Math.max(0, camY);
+        const theme = currentTheme || THEMES[0]; 
+        
+        const p = Math.min(h / NIGHT_HEIGHT_THRESHOLD, 1);
+        
+        const rT = Math.round(theme.dayTop[0] + (theme.nightTop[0] - theme.dayTop[0]) * p);
+        const gT = Math.round(theme.dayTop[1] + (theme.nightTop[1] - theme.dayTop[1]) * p);
+        const bT = Math.round(theme.dayTop[2] + (theme.nightTop[2] - theme.dayTop[2]) * p);
+        
+        const rB = Math.round(theme.dayBot[0] + (theme.nightBot[0] - theme.dayBot[0]) * p);
+        const gB = Math.round(theme.dayBot[1] + (theme.nightBot[1] - theme.dayBot[1]) * p);
+        const bB = Math.round(theme.dayBot[2] + (theme.nightBot[2] - theme.dayBot[2]) * p);
+        
+        const container = document.getElementById('game-container');
+        container.style.background = `linear-gradient(to top, rgb(${rT},${gT},${bT}), rgb(${rB},${gB},${bB}))`;
+        
+        if (p > 0.6) document.body.classList.add('night-hud');
+        else document.body.classList.remove('night-hud');
+    }
+
+    function loadLocalRecord() {
+        const stored = localStorage.getItem('deutsch_jump_record');
+        localRecord = stored ? parseInt(stored) : 0;
+        localRecordEl.innerText = localRecord;
+    }
+
+    async function fetchLeaderboard() {
+        if (!GOOGLE_SCRIPT_URL) return [];
+        try {
+            const response = await fetch(GOOGLE_SCRIPT_URL + "?action=get&limit=1000");
+            const data = await response.json();
+            cachedLeaderboard = data;
+            if(cachedLeaderboard.length > 0) {
+                highscore = cachedLeaderboard[0].score;
+                highscoreEl.innerText = highscore;
+            }
+            return data;
+        } catch (error) { return []; }
+    }
+
+    async function submitToGoogleSheet(name, score, level, mistakes) {
+        if (!GOOGLE_SCRIPT_URL) return;
+        try {
+            await fetch(GOOGLE_SCRIPT_URL, {
+                method: "POST",
+                // WICHTIG: text/plain verhindert CORS Preflight Probleme und macht es robuster
+                headers: {
+                    "Content-Type": "text/plain;charset=utf-8",
+                },
+                body: JSON.stringify({ name: name, score: score, level: level, mistakes: mistakes })
+            });
+        } catch (error) {
+            console.error("Fehler beim Speichern:", error);
+        }
+    }
+
+    async function showLeaderboard() {
+        startScreen.classList.add('hidden'); gameOverScreen.classList.add('hidden'); leaderboardScreen.classList.remove('hidden');
+        leaderboardList.innerHTML = ""; leaderboardLoading.classList.remove('hidden');
+        const ctrl = document.getElementById('mobile-controls');
+        if(ctrl) ctrl.classList.remove('active');
+        initMenuNavigation('leaderboard');
+        const list = await fetchLeaderboard();
+        leaderboardLoading.classList.add('hidden');
+        if (!list || list.length === 0) {
+            leaderboardList.innerHTML = "<li class='leaderboard-entry' style='justify-content:center;'>Keine Daten verfügbar.</li>";
+            return;
+        }
+        list.forEach((entry, index) => {
+            const li = document.createElement('li');
+            li.className = 'leaderboard-entry';
+            li.innerHTML = `<div class="rank-badge">${index + 1}</div><div class="entry-name">${entry.name}</div><div class="entry-level">${entry.level || ""}</div><div class="entry-score">${entry.score}</div>`;
+            leaderboardList.appendChild(li);
+        });
+    }
+
+    function submitHighscore() {
+        const name = playerNameInput.value.trim().substring(0, 10);
+        if (name) {
+            localStorage.setItem('deutsch_player_name', name);
+            const btn = document.getElementById('save-score-btn');
+            btn.innerText = "Gespeichert! ✅";
+            btn.disabled = true;
+            playerNameInput.disabled = true;
+            
+            // Fehler als String formatieren
+            const mistakesStr = mistakesLog.length > 0 ? mistakesLog.join(', ') : "Keine";
+            
+            submitToGoogleSheet(name, score, currentDifficulty.label, mistakesStr).then(() => { fetchLeaderboard(); });
+            initMenuNavigation('gameover');
+        } else {
+            alert("Bitte gib einen Namen ein!");
+        }
+    }
+
+    window.submitHighscore = submitHighscore;
+    window.showLeaderboard = showLeaderboard;
+    window.showStartScreen = () => { 
+        gameRunning = false; 
+        updateBackground(0); 
+        startScreen.classList.remove('hidden'); levelIntroScreen.classList.add('hidden'); gameOverScreen.classList.add('hidden'); leaderboardScreen.classList.add('hidden'); questionWrapper.classList.add('hidden'); 
+        updateMobileControlsVisibility(); 
+        initMenuNavigation('start');
+    };
+    window.restartLevel = () => { setupGameSession(currentDifficultyIndex); };
+    window.closeHint = () => { hintOverlay.classList.add('hidden'); gameRunning = true; updateMobileControlsVisibility(); };
+    window.setControlMode = setControlMode;
+    window.toggleFullscreen = toggleFullscreen;
+
+    window.onload = () => {
+        resize(); loadTouchControlsState(); fetchLeaderboard(); loadLocalRecord(); initMenuNavigation('start');
+        document.getElementById('player-name-input').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') submitHighscore();
+        });
+        if (!gameLoopId) gameLoopId = requestAnimationFrame(loop);
+    };
+
+    const keys = { left: false, right: false, up: false };
+    const getKey = (code) => {
+        if (code === 'ArrowLeft' || code === 'KeyA') return 'left';
+        if (code === 'ArrowRight' || code === 'KeyD') return 'right';
+        if (code === 'ArrowUp' || code === 'KeyW' || code === 'Space') return 'up';
+        return null;
+    };
+
+    window.addEventListener('keydown', (e) => {
+        const k = getKey(e.code);
+        if (k) { keys[k] = true; if(['ArrowUp','Space','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault(); }
+        if (!gameRunning && menuNavElements.length > 0) {
+            if (document.activeElement === playerNameInput) {
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
+                if (e.key === 'ArrowDown') { e.preventDefault(); playerNameInput.blur(); } else return;
+            }
+            let nextIndex = menuNavIndex;
+            const isStartScreen = !startScreen.classList.contains('hidden');
+            
+            if (isStartScreen) {
+                 // Simplified navigation for new grid
+                 if (e.key === 'ArrowDown' || e.key === 's') nextIndex = (menuNavIndex + 1) % menuNavElements.length;
+                 else if (e.key === 'ArrowUp' || e.key === 'w') nextIndex = (menuNavIndex - 1 + menuNavElements.length) % menuNavElements.length;
+                 else if (e.key === 'ArrowRight' || e.key === 'd') nextIndex = (menuNavIndex + 1) % menuNavElements.length;
+                 else if (e.key === 'ArrowLeft' || e.key === 'a') nextIndex = (menuNavIndex - 1 + menuNavElements.length) % menuNavElements.length;
+            } else {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 's' || e.key === 'd') {
+                    nextIndex = (menuNavIndex + 1) % menuNavElements.length;
+                } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'w' || e.key === 'a') {
+                    nextIndex = (menuNavIndex - 1 + menuNavElements.length) % menuNavElements.length;
+                }
+            }
+            if (e.key === 'Enter' || e.key === ' ') { 
+                e.preventDefault(); 
+                if (menuNavIndex >= 0 && menuNavElements[menuNavIndex]) { menuNavElements[menuNavIndex].click(); }
+            } else { 
+                menuNavIndex = nextIndex; 
+                updateMenuNavVisuals(); 
+            }
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        const k = getKey(e.code);
+        if (k) { keys[k] = false; if (k === 'up' && player) player.canJumpRelease = true; }
+    });
+    
+    function initMenuNavigation(screenName) {
+        menuNavElements = [];
+        if (screenName === 'start') { 
+            const diffs = Array.from(document.querySelectorAll('.diff-btn'));
+            const leader = document.getElementById('leaderboard-btn');
+            const modes = Array.from(document.querySelectorAll('.mode-btn'));
+            menuNavElements = [...diffs, leader, ...modes]; 
+        }
+        else if (screenName === 'gameover') {
+            const saveBtn = document.getElementById('save-score-btn');
+            if (!highscoreInputContainer.classList.contains('hidden') && !saveBtn.disabled) menuNavElements.push(saveBtn);
+            menuNavElements.push(document.getElementById('retry-btn'), document.getElementById('game-over-btn'));
+        } else if (screenName === 'leaderboard') {
+            const backBtn = leaderboardScreen.querySelector('button');
+            if (backBtn) menuNavElements.push(backBtn);
+        }
+        document.querySelectorAll('.keyboard-focus').forEach(el => el.classList.remove('keyboard-focus'));
+        if (menuNavElements.length > 0) { menuNavIndex = 0; updateMenuNavVisuals(); }
+    }
+
+    function updateMenuNavVisuals() {
+        document.querySelectorAll('.keyboard-focus').forEach(el => el.classList.remove('keyboard-focus'));
+        if (menuNavIndex >= 0 && menuNavElements[menuNavIndex]) {
+            menuNavElements[menuNavIndex].classList.add('keyboard-focus');
+            menuNavElements[menuNavIndex].scrollIntoView({behavior: "smooth", block: "center"});
+        }
+    }
+
+    const addTouch = (elem, keyName) => {
+        elem.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
+        elem.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; if (keyName === 'up' && player) player.canJumpRelease = true; });
+    };
+    addTouch(document.getElementById('btn-left'), 'left');
+    addTouch(document.getElementById('btn-right'), 'right');
+    addTouch(document.getElementById('btn-jump'), 'up');
+
+    class Player {
+        constructor() {
+            this.w = 40; this.h = 40; this.x = canvas.width/2 - 20; this.y = canvas.height - GROUND_HEIGHT - this.h; 
+            this.vx = 0; this.vy = 0; this.grounded = false; this.facingRight = true; this.readyForSuperJump = false; this.canJumpRelease = true;
+            this.visible = true;
+            this.scale = 1;
+        }
+        update(dt) {
+            if (!this.visible) return;
+            if (keys.left) { this.vx = -SPEED; this.facingRight = false; }
+            else if (keys.right) { this.vx = SPEED; this.facingRight = true; }
+            else this.vx *= Math.pow(0.8, dt); 
+            if (this.grounded && !keys.up) this.canJumpRelease = true;
+            if (keys.up && this.canJumpRelease) {
+                if (this.readyForSuperJump) { this.vy = SUPER_JUMP_FORCE; this.grounded = false; this.readyForSuperJump = false; this.canJumpRelease = false; }
+                else if (this.grounded) { this.vy = currentJumpForce; this.grounded = false; this.canJumpRelease = false; }
+            }
+            this.x += this.vx * dt; this.y += this.vy * dt; this.vy += currentGravity * dt; 
+            if (this.x < 0) this.x = 0; if (this.x + this.w > canvas.width) this.x = canvas.width - this.w;
+        }
+        draw() {
+            if (!this.visible) return;
+            ctx.save(); ctx.translate(this.x + this.w/2, this.y + this.h/2); 
+            ctx.scale(this.scale, this.scale);
+            if (multiplier > 1) { ctx.shadowBlur = 20; ctx.shadowColor = multiplier >= 3 ? '#FFD700' : '#00E5FF'; }
+            ctx.fillStyle = this.readyForSuperJump ? '#FFD700' : (currentTheme ? currentTheme.player : '#FF5722');
+            ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
+            ctx.fillStyle = 'white'; const o = this.facingRight ? 8 : -8;
+            ctx.fillRect(o - 2, -10, 8, 8); ctx.fillRect(o - 12, -10, 8, 8);
+            ctx.fillStyle = 'black'; ctx.fillRect(o, -8, 4, 4); ctx.fillRect(o - 10, -8, 4, 4);
+            ctx.restore();
+        }
+    }
+
+    class Platform {
+        constructor(x, y, value, isCorrect, isPermanent = false, type = 'normal') { 
+            this.x = x; this.y = y; 
+            this.w = (type === 'winner') ? 250 : platformWidth; 
+            this.h = (type === 'winner' || isPermanent) ? 30 : 55; // Höhere Plattformen für 2-zeiligen Text (außer Start/Ziel)
+            this.value = value;
+            this.isCorrect = isCorrect; this.isPermanent = isPermanent; 
+            this.type = type; 
+            this.breaking = false; this.broken = false; this.isSolved = false; this.breakTimer = 0; this.shakeOffset = 0;
+        }
+        update(player, dt) {
+            if (this.broken && !this.isPermanent) return; 
+            if (gameOverPending && !this.isPermanent) return;
+            if (this.breaking) {
+                this.breakTimer += dt; this.shakeOffset = (Math.random() - 0.5) * 10; 
+                if (this.breakTimer > 30) { this.broken = true; if (!this.isPermanent) createParticles(this.x + this.w/2, this.y + this.h/2 + cameraY, '#e74c3c'); }
+                return; 
+            }
+            const py = this.y + cameraY; const pb = player.y + player.h; const prevPb = (player.y - (player.vy * dt)) + player.h;
+            if (player.vy > 0 && prevPb <= py + 10 && pb >= py && player.x + player.w > this.x && player.x < this.x + this.w) {
+                player.y = py - player.h; player.vy = 0; player.grounded = true; this.triggerEffect(player);
+            }
+        }
+        triggerEffect(player) {
+            if (this.type === 'winner') {
+                if (transitionState === 'SPAWNED_WIN') {
+                    transitionState = 'LANDED_WIN';
+                    player.vx = 0;
+                    startLevelTransitionSequence(this);
+                }
+                return;
+            }
+
+            if (this.isPermanent) { player.readyForSuperJump = false; isInvulnerable = false; if (gameOverPending) gameOver(); return; }
+            if (this.isCorrect) {
+                if (gameOverPending) return; isInvulnerable = false;
+                if (this.isSolved) { player.readyForSuperJump = true; return; }
+                this.handleCorrectAnswer(player);
+            } else { this.breaking = true; this.handleWrongAnswer(); }
+        }
+        handleCorrectAnswer(player) {
+            let pts = 10 * multiplier; const time = Date.now() - questionStartTime;
+            if (time <= 5000) pts += 5;
+            score += pts; scoreEl.innerText = score; streak++; streakEl.innerText = streak;
+            
+            if (score > localRecord) {
+                localRecord = score;
+                localRecordEl.innerText = localRecord;
+                localStorage.setItem('deutsch_jump_record', localRecord);
+            }
+
+            if (streak === 5) activateMultiplier(2); else if (streak === 10) activateMultiplier(3);
+            const pColor = currentTheme ? currentTheme.particle : "#2ecc71";
+            createParticles(this.x + this.w/2, this.y + cameraY, pColor); 
+            player.vy = 0; player.readyForSuperJump = true; this.isSolved = true; 
+            
+            if (cameraY >= NIGHT_HEIGHT_THRESHOLD) {
+                jumpsInNightMode++;
+            }
+            
+            generateLevel();
+        }
+        handleWrongAnswer() {
+            if (!isInvulnerable && !gameOverPending) {
+                 // Log mistake
+                 mistakesLog.push(`${currentProblem.text} (falsch: ${this.value})`);
+            }
+            streak = 0; streakEl.innerText = streak; multiplier = 1; updateMultiplierUI(); deductLife(); 
+        }
+        draw() {
+            if (this.broken && !this.isPermanent) return; 
+            ctx.save(); ctx.translate(this.shakeOffset, 0);
+            
+            if (this.type === 'winner') {
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+                if(Math.random() < 0.1) createParticles(this.x + Math.random()*this.w, this.y, '#FFF');
+                ctx.fillStyle = '#FFF'; ctx.font = 'bold 16px Roboto'; ctx.textAlign = 'center'; 
+                ctx.fillText("ZIEL ERREICHT!", this.x + this.w/2, this.y + 20);
+            } else {
+                const theme = currentTheme || THEMES[0];
+                ctx.fillStyle = this.isPermanent ? theme.platformSafe : (this.breaking ? '#e74c3c' : theme.platform); 
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+                if (!this.isPermanent) { 
+                    ctx.fillStyle = 'white'; 
+                    ctx.textAlign = 'center'; 
+                    
+                    // Automatische Zeilentrennung bei Leerzeichen
+                    const parts = this.value.split(' ');
+                    // Nur splitten wenn Text lang genug und ein Leerzeichen da ist (z.B. "ich gehe")
+                    // Verhindert split bei kurzen Sachen wie "1. P. Sg." (wollen wir da splitten?)
+                    // Ja, auch "1. Person..." ist gut zu splitten.
+                    
+                    if (parts.length > 1) {
+                         // Sonderfall für Klammern: "schwimmen (1. P. Sg.)"
+                         // Split beim ersten Leerzeichen oder logisch?
+                         // Einfachster Weg: Erstes Wort oben, Rest unten
+                         const line1 = parts[0];
+                         const line2 = parts.slice(1).join(' ');
+                         
+                         ctx.font = 'bold 16px Roboto';
+                         ctx.fillText(line1, this.x + this.w/2, this.y + 22); 
+                         ctx.fillText(line2, this.x + this.w/2, this.y + 42);
+                    } else {
+                         // Einzeilig, zentriert
+                         ctx.font = this.value.length > 10 ? 'bold 16px Roboto' : 'bold 18px Roboto'; 
+                         ctx.fillText(this.value, this.x + this.w/2, this.y + 35); 
+                    }
+                }
+            }
+            ctx.restore();
+        }
+    }
+
+    class BackgroundObject {
+        constructor(spawnY, type, camY) {
+            this.type = type; this.y = type === 'balloon' ? -camY + canvas.height + 50 : spawnY;
+            this.vy = type === 'balloon' ? -1 - Math.random() : (type === 'leaf' ? 1 + Math.random() : 0);
+            this.x = Math.random() * canvas.width; this.vx = (Math.random() - 0.5) * 2;
+            this.emoji = this.getEmoji(type); this.size = 20 + Math.random() * 30; this.wobble = Math.random() * 6.28;
+        }
+        getEmoji(t) {
+            const theme = currentTheme || THEMES[0];
+            const list = theme.emojis[t] || theme.emojis['leaf'];
+            return list[Math.floor(Math.random()*list.length)];
+        }
+        update(dt) { this.x += this.vx * dt; this.y += this.vy * dt; this.wobble += 0.05 * dt; if (this.x > canvas.width + 50) this.x = -50; if (this.x < -50) this.x = canvas.width + 50; }
+        draw() { ctx.font = `${this.size}px Arial`; ctx.save(); ctx.translate(this.x, this.y); ctx.fillText(this.emoji, 0, 0); ctx.restore(); }
+    }
+
+    class Particle { constructor(x, y, c) { this.x=x; this.y=y; this.vx=(Math.random()-0.5)*10; this.vy=(Math.random()-0.5)*10; this.life=1.0; this.c=c; } update(dt){this.x+=this.vx * dt;this.y+=this.vy * dt;this.life-=0.05 * dt;} draw(){ctx.globalAlpha=this.life;ctx.fillStyle=this.c;ctx.beginPath();ctx.arc(this.x,this.y,5,0,6.28);ctx.fill();ctx.globalAlpha=1.0;} }
+    
+    function activateMultiplier(v) { multiplier = v; updateMultiplierUI(); }
+    function updateMultiplierUI() { if (multiplier > 1) { multiplierEl.innerText = `x${multiplier}`; multiplierEl.classList.remove('hidden'); } else multiplierEl.classList.add('hidden'); }
+    function createParticles(x,y,c) { for(let i=0;i<15;i++) particles.push(new Particle(x,y,c)); }
+    
+    function manageBackground(py) {
+        if (Math.random() < 0.008) { 
+            const h = cameraY + (canvas.height - py);
+            let t = h < 3000 ? 'cloud' : (h < 6000 ? 'bird' : 'space');
+            backgroundObjects.push(new BackgroundObject(-cameraY - 50, t, cameraY));
+        }
+        backgroundObjects = backgroundObjects.filter(o => (o.y + cameraY) > -200 && (o.y + cameraY) < canvas.height + 200);
+    }
+
+    async function callGeminiLLM(q) {
+        if (!API_KEY) return null;
+        try { 
+            const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ contents: [{ parts: [{ text: q }] }], systemInstruction: { parts: [{ text: "Deutschlehrer. Extrem kurz. Grammatik-Tipp. Max 20 Worte." }] } }) }); 
+            const j = await r.json(); return j.candidates[0].content.parts[0].text; 
+        } catch (e) { return null; }
+    }
+
+    window.getHint = async () => {
+        if (!gameRunning || !currentProblem) return;
+        gameRunning = false; hintOverlay.classList.remove('hidden'); hintContent.innerText = "Lade Tipp...";
+        // Strip text for prompt
+        const promptText = currentProblem.text;
+        const hint = await callGeminiLLM(`Tipp für Grammatik: ${promptText}`);
+        hintContent.innerText = hint || "Achte auf die Endungen!\nich -e, du -st, er -t, wir -en, ihr -t, sie -en";
+    };
+    
+    // --- GRAMMAR LOGIC ---
+    const generateGrammarProblem = () => {
+        const type = currentDifficulty.type;
+        
+        // --- LEVEL 1: PRONOMEN ---
+        if (type === 'pronoun') {
+            // New logic: Include Verb Context if possible
+            const index = Math.floor(Math.random() * PRONOUNS.length);
+            const correctObj = PRONOUNS[index];
+            const direction = Math.random() > 0.5 ? 'labelToWord' : 'wordToLabel';
+            
+            // Get a random verb form for context (using 'pres' tense)
+            const randomVerbIndex = Math.floor(Math.random() * VERBS.length);
+            const verbForm = VERBS[randomVerbIndex].pres[index];
+            
+            const distractors = PRONOUNS.filter(p => p !== correctObj).sort(() => Math.random() - 0.5).slice(0, 2);
+            
+            if (direction === 'labelToWord') {
+                // Question: "1. Person Singular" -> Answer: "ich"
+                // Context: "1. Person Singular: gehen"
+                const qText = `${correctObj.l}: ${VERBS[randomVerbIndex].i}`;
+                
+                return { 
+                    text: qText, 
+                    correct: correctObj.w, 
+                    answers: [correctObj.w, distractors[0].w, distractors[1].w].sort(() => Math.random() - 0.5) 
+                };
+            } else {
+                // Question: "ich" -> Answer: "1. Person Singular"
+                // Context: "ich gehe" (ohne Klammern, wie ein Satz)
+                const qText = `${correctObj.w} ${verbForm}`;
+                
+                return { 
+                    text: qText, 
+                    correct: correctObj.l, 
+                    answers: [correctObj.l, distractors[0].l, distractors[1].l].sort(() => Math.random() - 0.5) 
+                };
+            }
+        }
+        
+        // --- LEVEL 2-4: ZEITEN ---
+        // Helper to pick tense array based on type
+        let tenseKey = type;
+        if (type === 'mix') {
+            const tenses = ['pres', 'prat', 'perf'];
+            tenseKey = tenses[Math.floor(Math.random() * tenses.length)];
+        }
+
+        const verb = VERBS[Math.floor(Math.random() * VERBS.length)];
+        const personIndex = Math.floor(Math.random() * 6);
+        const personLabel = PRONOUNS[personIndex].l;
+        const personWord = PRONOUNS[personIndex].w.split('/')[0]; // "ich" from "ich"
+        
+        // Determine full conjugated form (e.g., "ich gehe")
+        let conjugated = verb[tenseKey][personIndex];
+        // Note: For Perfekt, the array already contains "bin geschwommen", but pronouns are not in data? 
+        // My data `pres`: ['bin', 'bist'...] -> does not have pronoun.
+        // My data `perf`: ['bin gewesen'...] -> does not have pronoun.
+        // I need to prepend pronoun for the answer to make sense as requested ("Ich schwimme").
+        
+        // Let's standardise answer format: "ich schwimme"
+        const correctFull = `${personWord} ${conjugated}`;
+        
+        // Direction: 
+        // A: Infinitive + Person -> Conjugated (schwimmen (1. P. Sg.) -> ich schwimme)
+        // B: Conjugated -> Infinitive + Person (ich schwimme -> schwimmen (1. P. Sg.))
+        const direction = Math.random() > 0.4 ? 'infToConj' : 'conjToInf'; // 60% standard drill
+        
+        if (direction === 'infToConj') {
+            const question = `${verb.i} (${personLabel})`;
+            
+            // Distractors: Same verb different person OR Same person different verb? 
+            // Better: Same verb different person to test endings.
+            let indices = [0,1,2,3,4,5].filter(i => i !== personIndex);
+            indices.sort(() => Math.random() - 0.5);
+            
+            // Format distractors
+            const d1Word = PRONOUNS[indices[0]].w.split('/')[0];
+            const d2Word = PRONOUNS[indices[1]].w.split('/')[0];
+            const d1Full = `${d1Word} ${verb[tenseKey][indices[0]]}`;
+            const d2Full = `${d2Word} ${verb[tenseKey][indices[1]]}`;
+            
+            return {
+                text: question,
+                correct: correctFull,
+                answers: [correctFull, d1Full, d2Full].sort(() => Math.random() - 0.5)
+            };
+        } else {
+            // "ich schwimme" -> "1. Person Singular" (Ohne Grundform in der Antwort)
+            
+            const question = correctFull; // "ich schwimme"
+            const correctAns = personLabel; 
+            
+            // Distractors: Same verb, diff person label
+            let indices = [0,1,2,3,4,5].filter(i => i !== personIndex);
+            indices.sort(() => Math.random() - 0.5);
+            
+            const d1Ans = PRONOUNS[indices[0]].l;
+            const d2Ans = PRONOUNS[indices[1]].l;
+            
+            return {
+                text: question,
+                correct: correctAns,
+                answers: [correctAns, d1Ans, d2Ans].sort(() => Math.random() - 0.5)
+            };
+        }
+    };
+
+    const generateLevel = () => {
+        // WIN CONDITION CHECK
+        if (jumpsInNightMode >= JUMPS_IN_NIGHT_TO_WIN && transitionState === 'NONE') {
+            transitionState = 'SPAWNED_WIN';
+            allPlatforms = allPlatforms.filter(p => p.isPermanent || p.y + cameraY > -100);
+            questionWrapper.classList.add('hidden'); 
+            
+            const winPlat = new Platform(canvas.width/2 - 125, nextPlatformY, "ZIEL", true, false, 'winner');
+            allPlatforms.push(winPlat);
+            
+            for(let i=0; i<50; i++) {
+                particles.push(new Particle(Math.random()*canvas.width, nextPlatformY + Math.random()*200 - 300, `hsl(${Math.random()*360}, 100%, 50%)`));
+            }
+            return;
+        }
+
+        questionStartTime = Date.now(); 
+        allPlatforms = allPlatforms.filter(p => p.isPermanent || p.y + cameraY > -100);
+        currentProblem = generateGrammarProblem();
+        
+        // Font size adjustment for question box
+        if (currentProblem.text.length > 15) questionEl.style.fontSize = "clamp(1rem, 5vw, 1.8rem)";
+        else questionEl.style.fontSize = "clamp(1.4rem, 6vw, 2.5rem)";
+        
+        questionEl.innerText = currentProblem.text;
+        questionWrapper.classList.remove('hidden');
+        
+        // Only 3 answers for grammar to allow more text space
+        const answers = currentProblem.answers;
+        const platformCount = 3;
+        const spacing = canvas.width / platformCount;
+        
+        answers.forEach((ans, i) => {
+            const xPos = (spacing * i) + (spacing - platformWidth)/2;
+            // Ensure bounds
+            const safeX = Math.max(10, Math.min(canvas.width - platformWidth - 10, xPos));
+            allPlatforms.push(new Platform(safeX, nextPlatformY, ans, ans === currentProblem.correct)); 
+        });
+        nextPlatformY -= LEVEL_HEIGHT_GAP; 
+    };
+
+    // --- TRANSITION ANIMATION LOGIC ---
+    function startLevelTransitionSequence(platform) {
+        rocket = new Rocket(platform.x + platform.w/2 - 30, platform.y - 600); 
+        gameRunning = true; 
+    }
+
+    function updateLevelTransition(dt) {
+        if (!rocket) return;
+        
+        if (transitionState === 'LANDED_WIN') {
+            const targetY = (allPlatforms.find(p=>p.type==='winner')?.y || 0);
+            rocket.update(targetY, dt);
+            if (rocket.state === 'IDLE') {
+                transitionState = 'BOARDING';
+                player.vx = 0; player.vy = 0;
+            }
+        }
+        else if (transitionState === 'BOARDING') {
+            const centerX = rocket.x + rocket.w/2 - player.w/2;
+            const diff = centerX - player.x;
+            if (Math.abs(diff) > 2) player.x += diff * 0.1;
+            
+            if (Math.abs(diff) < 20) {
+                player.scale -= 0.05 * dt;
+                player.y += 1 * dt; 
+                if (player.scale <= 0) {
+                    player.visible = false;
+                    player.scale = 0;
+                    transitionState = 'ROCKET_LAUNCH';
+                    rocket.state = 'LAUNCHING';
+                    for(let i=0; i<30; i++) particles.push(new Particle(rocket.x+30, rocket.y+80, '#FFF'));
+                }
+            }
+        }
+        else if (transitionState === 'ROCKET_LAUNCH') {
+            rocket.update(0, dt);
+            cameraY -= rocket.vy * dt; 
+            
+            if (rocket.y + cameraY < -1000) {
+                transitionState = 'ROCKET_LANDING';
+                setupNextLevel();
+            }
+        }
+        else if (transitionState === 'ROCKET_LANDING') {
+             rocket.y += 5 * dt;
+             if (rocket.y >= canvas.height - GROUND_HEIGHT - 100) {
+                 rocket.y = canvas.height - GROUND_HEIGHT - 100;
+                 rocket.state = 'IDLE';
+                 transitionState = 'DISEMBARK';
+                 player.x = rocket.x + rocket.w/2 - player.w/2;
+                 player.y = rocket.y + 60;
+                 player.visible = true;
+             }
+        }
+        else if (transitionState === 'DISEMBARK') {
+             player.scale += 0.05 * dt;
+             if (player.scale >= 1) {
+                 player.scale = 1;
+                 transitionState = 'ROCKET_AWAY';
+                 rocket.state = 'LAUNCHING';
+             }
+        }
+        else if (transitionState === 'ROCKET_AWAY') {
+            rocket.update(0, dt);
+            if (rocket.y < -200) {
+                transitionState = 'NONE';
+                gameRunning = true;
+                rocket = null;
+                generateLevel(); 
+            }
+        }
+    }
+
+    function setupNextLevel() {
+        currentLevel++;
+        levelDisplayEl.innerText = currentLevel;
+        currentThemeIndex++;
+        currentTheme = THEMES[currentThemeIndex % THEMES.length];
+        
+        cameraY = 0;
+        nextPlatformY = canvas.height - GROUND_HEIGHT - LEVEL_HEIGHT_GAP;
+        jumpsInNightMode = 0;
+        
+        allPlatforms = [];
+        const gy = canvas.height - GROUND_HEIGHT;
+        allPlatforms.push(new Platform(0, gy, 0, false, true)); allPlatforms[0].w = canvas.width;
+        
+        rocket.y = -500; 
+        rocket.state = 'DESCENDING';
+        rocket.flameSize = 0;
+    }
+
+    const deductLife = () => { 
+        if (gameOverPending || isInvulnerable) return; 
+        lives--; 
+        livesEl.innerText = lives; 
+        mistakesCount++;
+        isInvulnerable = true; 
+        if (lives <= 0) {
+            gameOverPending = true;
+            allPlatforms.forEach(p => { if(!p.isPermanent) p.breaking = true; });
+        }
+    };
+
+    const loseLifeFallback = () => {
+        deductLife();
+        if (!gameOverPending) {
+            const p = allPlatforms.find(pl => pl.isPermanent);
+            player.x = canvas.width/2 - 20; player.y = p.y - 40; cameraY = 0; player.vy = 0; player.grounded = true; isInvulnerable = false;
+        } else gameOver();
+    };
+
+    window.startGame = (idx) => {
+        currentDifficulty = DIFFICULTIES[idx]; currentDifficultyIndex = idx; currentGravity = currentDifficulty.gravity; currentJumpForce = currentDifficulty.jump;
+        score = 0; lives = 3; streak = 0; multiplier = 1; cameraY = 0; allPlatforms = []; backgroundObjects = []; gameOverPending = false; isInvulnerable = false;
+        currentLevel = 1; levelDisplayEl.innerText = 1; jumpsInNightMode = 0; transitionState = 'NONE'; rocket = null;
+        currentThemeIndex = 0;
+        mistakesCount = 0;
+        currentTheme = THEMES[0]; 
+        
+        streakEl.innerText = 0; scoreEl.innerText = 0; livesEl.innerText = 3; updateMultiplierUI();
+        const gy = canvas.height - GROUND_HEIGHT;
+        allPlatforms.push(new Platform(0, gy, 0, false, true)); allPlatforms[0].w = canvas.width;
+        player = new Player(); nextPlatformY = gy - LEVEL_HEIGHT_GAP;
+        
+        gameRunning = true; 
+        // Hide Screens (Ensures start/game over screens are hidden when game starts directly)
+        startScreen.classList.add('hidden'); 
+        levelIntroScreen.classList.add('hidden'); 
+        gameOverScreen.classList.add('hidden'); 
+        leaderboardScreen.classList.add('hidden');
+        menuNavElements = []; 
+        generateLevel(); 
+        updateMobileControlsVisibility();
+        updateBackground(0); 
+        if (!gameLoopId) loop();
+    };
+
+    // Sets up the session but shows intro first
+    window.setupGameSession = (idx) => {
+        currentDifficulty = DIFFICULTIES[idx]; 
+        currentDifficultyIndex = idx;
+        
+        // Show Intro Screen
+        startScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden'); // FIX: Game Over Screen ausblenden
+        leaderboardScreen.classList.add('hidden'); // FIX: Leaderboard ausblenden
+        levelIntroScreen.classList.remove('hidden');
+        
+        // Populate Rules
+        introTitle.innerText = `Level: ${currentDifficulty.label}`;
+        introRules.innerHTML = LEVEL_RULES[currentDifficulty.type];
+        
+        // Generate Sample Question
+        const sample = generateGrammarProblem();
+        sampleQuestionText.innerText = sample.text;
+        sampleOptions.innerHTML = '';
+        startLevelBtn.disabled = true;
+        startLevelBtn.innerText = "Erst Frage beantworten! 🔒";
+        startLevelBtn.style.background = "#555";
+        
+        sample.answers.forEach(ans => {
+            const btn = document.createElement('button');
+            btn.className = 'sample-option-btn';
+            btn.innerText = ans;
+            btn.onclick = () => {
+                if (ans === sample.correct) {
+                    btn.classList.add('correct');
+                    startLevelBtn.disabled = false;
+                    startLevelBtn.innerText = "Spiel Starten 🚀";
+                    startLevelBtn.style.background = "#4CAF50";
+                    // Disable all options
+                    Array.from(sampleOptions.children).forEach(c => c.disabled = true);
+                } else {
+                    btn.classList.add('wrong');
+                    setTimeout(() => btn.classList.remove('wrong'), 500);
+                }
+            };
+            sampleOptions.appendChild(btn);
+        });
+    };
+
+    window.realStartGame = () => {
+        window.startGame(currentDifficultyIndex);
+    };
+
+    async function gameOver() {
+        if (!gameOverScreen.classList.contains('hidden')) return;
+        gameRunning = false; finalScoreEl.innerText = score;
+        const storedName = localStorage.getItem('deutsch_player_name');
+        playerNameInput.value = storedName || ""; playerNameInput.disabled = false;
+        const saveBtn = document.getElementById('save-score-btn');
+        if(saveBtn) { saveBtn.innerText = "Online Speichern 💾"; saveBtn.disabled = false; saveBtn.classList.remove('hidden'); }
+        if (score > 0) { highscoreInputContainer.classList.remove('hidden'); setTimeout(() => playerNameInput.focus(), 50); }
+        else highscoreInputContainer.classList.add('hidden'); 
+        questionWrapper.classList.add('hidden'); gameOverScreen.classList.remove('hidden');
+        updateMobileControlsVisibility(); initMenuNavigation('gameover');
+        let msg = await callGeminiLLM(`Motiviere Spieler für ${score} Punkte.`);
+        motivationTextEl.innerText = msg || "Gut gemacht! Nächstes Mal knackst du den Rekord.";
+    }
+
+    let lastTime = 0;
+    function loop(timestamp) {
+        gameLoopId = requestAnimationFrame(loop);
+        if (!timestamp) timestamp = performance.now();
+        if (!lastTime) lastTime = timestamp;
+        const deltaTime = timestamp - lastTime; lastTime = timestamp;
+        let dt = deltaTime / (1000 / 60); if (dt > 4) dt = 4;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (gameRunning) {
+            // Normal Gameplay
+            if (transitionState === 'NONE' || transitionState === 'SPAWNED_WIN') {
+                if(player) {
+                    manageBackground(player.y); 
+                    player.update(dt);
+                    const climb = canvas.height * 0.4, fall = canvas.height * 0.6;
+                    if (player.y < climb) { cameraY += climb - player.y; player.y = climb; }
+                    else if (player.y > fall && cameraY > 0) { let d = Math.min(cameraY, player.y - fall); cameraY -= d; player.y -= d; }
+                    
+                    if (player.y > canvas.height) {
+                        if (gameOverPending) gameOver();
+                        else if (cameraY <= 0) loseLifeFallback();
+                    }
+                    allPlatforms.forEach(p => p.update(player, dt));
+                }
+            } else {
+                updateLevelTransition(dt);
+            }
+            
+            particles.forEach((p, i) => { p.update(dt); if(p.life <= 0) particles.splice(i, 1); });
+            backgroundObjects.forEach(b => b.update(dt));
+            updateBackground(cameraY);
+        }
+        
+        ctx.save(); ctx.translate(0, cameraY); 
+        backgroundObjects.forEach(b => b.draw()); allPlatforms.forEach(p => p.draw());
+        if (rocket) rocket.draw(ctx);
+        ctx.restore(); 
+        if(player && transitionState !== 'ROCKET_LAUNCH') player.draw(); 
+        particles.forEach(p => p.draw());
+    }
+</script>
+</body>
+</html>
