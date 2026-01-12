@@ -663,7 +663,8 @@
     async function fetchLeaderboard() {
         if (!GOOGLE_SCRIPT_URL) return [];
         try {
-            const response = await fetch(GOOGLE_SCRIPT_URL + "?action=get&limit=1000");
+            // FIX: Zeitstempel (&t=...) angehängt. Das zwingt den Browser, die Liste NEU zu laden und nicht aus dem Cache zu nehmen.
+            const response = await fetch(GOOGLE_SCRIPT_URL + "?action=get&limit=1000&t=" + new Date().getTime());
             const data = await response.json();
             cachedLeaderboard = data;
             if(cachedLeaderboard.length > 0) {
