@@ -14,24 +14,27 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: #333;
-            /* Container zentrieren, aber Breite für PDF flexibel halten */
             margin: 0;
             padding: 20px;
             background-color: #f9f9f9;
-            display: flex;
-            justify-content: center;
+            /* ÄNDERUNG: Flexbox entfernt, da dies oft zu Versatz beim PDF-Druck führt */
+            display: block; 
+            text-align: center; /* Hilft bei der Zentrierung des Containers */
         }
 
         .sheet-container {
             background-color: white;
-            padding: 40px;
+            padding: 40px; /* Innenabstand */
             border-radius: 2px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             background: #ffffff; 
-            text-align: left;
+            text-align: left; /* Text im Blatt wieder linksbündig */
+            
+            /* ÄNDERUNG: Klassische Zentrierung via Margin - sicherer für PDF */
+            margin: 0 auto; 
             width: 100%;
-            max-width: 794px; /* A4 Breite in Pixeln bei 96 DPI ca. 794px */
-            box-sizing: border-box; /* Wichtig damit Padding nicht die Breite sprengt */
+            max-width: 794px; /* A4 Breite ca. 794px */
+            box-sizing: border-box; 
         }
 
         /* ÜBERSCHRIFTEN */
@@ -549,10 +552,9 @@
             html2canvas:  { 
                 scale: 2, // Gute Qualität
                 scrollY: 0, 
-                scrollX: 0,
-                useCORS: true,
-                // WICHTIG: windowWidth auf den tatsächlichen Inhalt setzen, nicht Browserfenster
-                windowWidth: element.offsetWidth + 40 // +40 Puffer
+                // ÄNDERUNG: windowWidth entfernt, damit html2pdf die Breite selbst bestimmt.
+                // Zusammen mit margin: 0 auto im CSS ist das sicherer.
+                useCORS: true
             }, 
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
