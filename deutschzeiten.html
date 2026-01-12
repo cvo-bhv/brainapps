@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interaktives Arbeitsblatt: Zeiten (Präsens, Präteritum, Perfekt)</title>
+    
+    <!-- html2pdf.js über CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        /* GRUNDLAYOUT & TYPOGRAFIE */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+
+        .sheet-container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 2px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            background: #ffffff; 
+            text-align: left; /* Linksbündig laut Anforderung */
+        }
+
+        /* ÜBERSCHRIFTEN */
+        h1 {
+            font-size: 24px;
+            color: #2c3e50;
+            border-bottom: 2px solid #e67e22;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 18px;
+            color: #2c3e50;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            background-color: #ecf0f1;
+            padding: 8px;
+            border-left: 5px solid #3498db;
+            border-radius: 0 4px 4px 0;
+            page-break-inside: avoid; /* Verhindert Umbruch im Titel */
+        }
+
+        /* HEADER INFO */
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+
+        /* AUFGABEN BLÖCKE */
+        .task-block {
+            margin-bottom: 30px;
+            text-align: left;
+            page-break-inside: avoid; /* Versucht, Aufgaben nicht zu zerschneiden */
+        }
+
+        .task-instruction {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .example-box {
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-style: italic;
+            border-radius: 4px;
+        }
+
+        .exercise-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .exercise-list li {
+            margin-bottom: 15px;
+            padding-left: 10px;
+            border-left: 3px solid #eee;
+        }
+
+        /* INPUTS & INTERAKTION */
+        input[type="text"], select {
+            border: none;
+            border-bottom: 2px solid #999;
+            background: #fdfdfd;
+            padding: 5px;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-bottom-color: #3498db;
+            background: #eaf2f8;
+        }
+
+        .long-input { width: 100%; margin-top: 5px; display: block; }
+        .table-input { width: 90%; }
+        #studentName { border-bottom: 2px solid #3498db; background-color: #f0f8ff; font-weight: bold; }
+
+        /* FEEDBACK (RICHTIG/FALSCH) */
+        .correct {
+            border-bottom-color: #2ecc71 !important;
+            background-color: #e8f8f5 !important;
+        }
+
+        .incorrect {
+            border-bottom-color: #e74c3c !important;
+            background-color: #fdedec !important;
+        }
+
+        .solution-feedback {
+            display: none;
+            font-size: 0.9em;
+            color: #e67e22;
+            margin-top: 4px;
+            font-weight: bold;
+        }
+
+        /* HINWEIS UND TIPP BOXEN */
+        .hint-box, .tip-box {
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 12px; /* Abgerundete Ecken laut Design */
+            page-break-inside: avoid;
+        }
+
+        .hint-box {
+            background-color: #e8f6f3;
+            border-left: 5px solid #1abc9c;
+        }
+
+        .tip-box {
+            background-color: #fef5e7;
+            border-left: 5px solid #f39c12;
+        }
+
+        .box-title {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+
+        .hint-box .box-title { color: #16a085; }
+        .tip-box .box-title { color: #d35400; }
+
+        /* TABELLE */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th { background-color: #f2f2f2; }
+
+        /* BUTTONS & UI */
+        .button-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-top: 40px;
+            padding: 20px;
+            background: #ecf0f1;
+            border-radius: 8px;
+        }
+
+        .check-button {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .check-button:hover { background-color: #219150; }
+
+        .send-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: not-allowed;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0.5;
+            transition: all 0.3s;
+        }
+
+        .send-button.enabled {
+            opacity: 1;
+            cursor: pointer;
+            background-color: #2980b9;
+        }
+
+        .send-button:hover.enabled { background-color: #1c5980; }
+
+        /* LOADER */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 2s linear infinite;
+            display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .status-text { font-size: 0.9em; margin-top: 10px; color: #555; font-weight: bold; }
+
+        /* OVERLAY */
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center; align-items: center;
+            z-index: 1000;
+        }
+        .overlay-content {
+            background: white; padding: 30px; border-radius: 10px;
+            text-align: center; max-width: 400px;
+            border-top: 5px solid #2ecc71;
+        }
+        .close-btn {
+            background: #333; color: white; border: none;
+            padding: 10px 20px; margin-top: 15px; border-radius: 4px;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="sheet-container" id="sheetToPrint">
+    <div class="header-info">
+        <div>Name: <input type="text" id="studentName" placeholder="Dein Name" style="width: 200px;"></div>
+        <div>Datum: <span id="currentDate"></span></div>
+    </div>
+
+    <h1>Thema: Zeiten (Präsens, Präteritum, Perfekt)</h1>
+
+    <!-- Aufgabe 1 -->
+    <div class="task-block" id="task1">
+        <h2>Aufgabe 1: Zeitformen bestimmen</h2>
+        <div class="task-instruction">
+            Wähle für jeden Satz die richtige Zeitform aus.
+        </div>
+        <div class="example-box"><strong>Beispiel:</strong> Er lachte laut. &rarr; <em>Präteritum</em></div>
+
+        <ol class="exercise-list" style="list-style-type: lower-alpha;">
+            <li>Der Hund bellt laut im Garten. 
+                <select class="interactive-select" data-solution="Präsens" data-label="Aufgabe 1a">
+                    <option value="">- Wählen -</option><option value="Präsens">Präsens</option><option value="Präteritum">Präteritum</option><option value="Perfekt">Perfekt</option>
+                </select>
+                <div class="solution-feedback">Lösung: Präsens</div>
+            </li>
+            <li>Gestern haben wir einen Kuchen gebacken. 
+                <select class="interactive-select" data-solution="Perfekt" data-label="Aufgabe 1b">
+                    <option value="">- Wählen -</option><option value="Präsens">Präsens</option><option value="Präteritum">Präteritum</option><option value="Perfekt">Perfekt</option>
+                </select>
+                <div class="solution-feedback">Lösung: Perfekt</div>
+            </li>
+            <li>Sie lief schnell zum Bus. 
+                <select class="interactive-select" data-solution="Präteritum" data-label="Aufgabe 1c">
+                    <option value="">- Wählen -</option><option value="Präsens">Präsens</option><option value="Präteritum">Präteritum</option><option value="Perfekt">Perfekt</option>
+                </select>
+                <div class="solution-feedback">Lösung: Präteritum</div>
+            </li>
+            <li>Ich lese gerne spannende Bücher. 
+                <select class="interactive-select" data-solution="Präsens" data-label="Aufgabe 1d">
+                    <option value="">- Wählen -</option><option value="Präsens">Präsens</option><option value="Präteritum">Präteritum</option><option value="Perfekt">Perfekt</option>
+                </select>
+                <div class="solution-feedback">Lösung: Präsens</div>
+            </li>
+            <li>Das Wetter war gestern sehr schön. 
+                <select class="interactive-select" data-solution="Präteritum" data-label="Aufgabe 1e">
+                    <option value="">- Wählen -</option><option value="Präsens">Präsens</option><option value="Präteritum">Präteritum</option><option value="Perfekt">Perfekt</option>
+                </select>
+                <div class="solution-feedback">Lösung: Präteritum</div>
+            </li>
+             <!-- Mindestens 5 Items -->
+             <li>Wir sind gestern ins Kino gegangen. 
+                <select class="interactive-select" data-solution="Perfekt" data-label="Aufgabe 1f">
+                    <option value="">- Wählen -</option><option value="Präsens">Präsens</option><option value="Präteritum">Präteritum</option><option value="Perfekt">Perfekt</option>
+                </select>
+                <div class="solution-feedback">Lösung: Perfekt</div>
+            </li>
+        </ol>
+
+        <div class="hint-box">
+            <span class="box-title">Hinweis</span>
+            Steht das Verb alleine (z. B. "lief") oder besteht es aus zwei Teilen (z. B. "hat ... gemacht")?
+        </div>
+    </div>
+
+    <!-- Aufgabe 2 -->
+    <div class="task-block" id="task2">
+        <h2>Aufgabe 2: Vom Präsens ins Präteritum</h2>
+        <div class="task-instruction">Schreibe den ganzen Satz im Präteritum.</div>
+        <div class="example-box"><strong>Beispiel:</strong> Ich esse einen Apfel. &rarr; Ich aß einen Apfel.</div>
+
+        <ol class="exercise-list" style="list-style-type: lower-alpha;">
+            <li>Ich gehe heute ins Kino.
+                <input type="text" class="interactive-input long-input" data-solution="Ich ging heute ins Kino." data-label="Aufgabe 2a">
+                <div class="solution-feedback">Lösung: Ich ging heute ins Kino.</div>
+            </li>
+            <li>Die Sonne scheint hell.
+                <input type="text" class="interactive-input long-input" data-solution="Die Sonne schien hell." data-label="Aufgabe 2b">
+                <div class="solution-feedback">Lösung: Die Sonne schien hell.</div>
+            </li>
+            <li>Wir spielen Fußball.
+                <input type="text" class="interactive-input long-input" data-solution="Wir spielten Fußball." data-label="Aufgabe 2c">
+                <div class="solution-feedback">Lösung: Wir spielten Fußball.</div>
+            </li>
+            <li>Er bringt mir ein Buch.
+                <input type="text" class="interactive-input long-input" data-solution="Er brachte mir ein Buch." data-label="Aufgabe 2d">
+                <div class="solution-feedback">Lösung: Er brachte mir ein Buch.</div>
+            </li>
+            <li>Sie schlafen lange.
+                <input type="text" class="interactive-input long-input" data-solution="Sie schliefen lange." data-label="Aufgabe 2e">
+                <div class="solution-feedback">Lösung: Sie schliefen lange.</div>
+            </li>
+        </ol>
+
+        <div class="hint-box">
+            <span class="box-title">Hinweis</span>
+            Unterscheide regelmäßige Verben (t-Endung) und unregelmäßige Verben (Vokalwechsel).
+        </div>
+    </div>
+
+    <!-- Aufgabe 3 -->
+    <div class="task-block" id="task3">
+        <h2>Aufgabe 3: Sätze im Perfekt bilden</h2>
+        <div class="task-instruction">Bilde aus den Wörtern Sätze im Perfekt.</div>
+        <div class="example-box"><strong>Beispiel:</strong> (wir / lernen) &rarr; Wir haben gelernt.</div>
+
+        <ol class="exercise-list" style="list-style-type: lower-alpha;">
+            <li>(ich / malen / ein Bild)
+                <input type="text" class="interactive-input long-input" data-solution="Ich habe ein Bild gemalt." data-label="Aufgabe 3a">
+                <div class="solution-feedback">Lösung: Ich habe ein Bild gemalt.</div>
+            </li>
+            <li>(ihr / fahren / nach Italien)
+                <input type="text" class="interactive-input long-input" data-solution="Ihr seid nach Italien gefahren." data-label="Aufgabe 3b">
+                <div class="solution-feedback">Lösung: Ihr seid nach Italien gefahren.</div>
+            </li>
+            <li>(das Kind / lachen)
+                <input type="text" class="interactive-input long-input" data-solution="Das Kind hat gelacht." data-label="Aufgabe 3c">
+                <div class="solution-feedback">Lösung: Das Kind hat gelacht.</div>
+            </li>
+            <li>(wir / schreiben / einen Test)
+                <input type="text" class="interactive-input long-input" data-solution="Wir haben einen Test geschrieben." data-label="Aufgabe 3d">
+                <div class="solution-feedback">Lösung: Wir haben einen Test geschrieben.</div>
+            </li>
+            <li>(er / verlieren / den Schlüssel)
+                <input type="text" class="interactive-input long-input" data-solution="Er hat den Schlüssel verloren." data-label="Aufgabe 3e">
+                <div class="solution-feedback">Lösung: Er hat den Schlüssel verloren.</div>
+            </li>
+        </ol>
+        
+        <div class="tip-box">
+            <span class="box-title">Tipp</span>
+            Bewegungsverben (fahren, gehen) nutzen "sein", die meisten anderen "haben".
+        </div>
+    </div>
+
+    <!-- Aufgabe 4 -->
+    <div class="task-block" id="task4">
+        <h2>Aufgabe 4: Stammformen</h2>
+        <div class="task-instruction">Fülle die Tabelle aus.</div>
+        
+        <table>
+            <thead><tr><th>Infinitiv</th><th>Präteritum (er/sie/es)</th><th>Perfekt (er/sie/es)</th></tr></thead>
+            <tbody>
+                <tr><td>sehen</td><td>sah</td><td>hat gesehen</td></tr>
+                <tr>
+                    <td>schreiben</td>
+                    <td><input type="text" class="interactive-input table-input" data-solution="schrieb" data-label="4a"></td>
+                    <td><input type="text" class="interactive-input table-input" data-solution="hat geschrieben" data-label="4b"></td>
+                </tr>
+                <tr>
+                    <td><input type="text" class="interactive-input table-input" data-solution="laufen" data-label="4c"></td>
+                    <td>lief</td>
+                    <td><input type="text" class="interactive-input table-input" data-solution="ist gelaufen" data-label="4d"></td>
+                </tr>
+                <tr>
+                    <td>nehmen</td>
+                    <td><input type="text" class="interactive-input table-input" data-solution="nahm" data-label="4e"></td>
+                    <td>hat genommen</td>
+                </tr>
+                <tr>
+                    <td>trinken</td>
+                    <td><input type="text" class="interactive-input table-input" data-solution="trank" data-label="4f"></td>
+                    <td><input type="text" class="interactive-input table-input" data-solution="hat getrunken" data-label="4g"></td>
+                </tr>
+                <tr>
+                    <td>fahren</td>
+                    <td><input type="text" class="interactive-input table-input" data-solution="fuhr" data-label="4h"></td>
+                    <td><input type="text" class="interactive-input table-input" data-solution="ist gefahren" data-label="4i"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- BUTTONS (Werden im PDF ausgeblendet via data-html2pdf-ignore) -->
+    <div class="button-area" data-html2canvas-ignore="true">
+        <button class="check-button" onclick="checkAnswers()">Selbstkontrolle</button>
+        <button id="sendBtn" class="send-button" onclick="generateAndSend()" disabled>
+            <span>An Lehrer senden</span>
+            <div class="loader" id="spinner"></div>
+        </button>
+        <div class="status-text" id="statusText">Bitte Name eingeben und alle Felder ausfüllen.</div>
+    </div>
+</div>
+
+<!-- SUCCESS OVERLAY -->
+<div class="overlay" id="successOverlay">
+    <div class="overlay-content">
+        <h3 style="color:#27ae60">✅ Erfolgreich gesendet!</h3>
+        <p>Deine Ergebnisse und das PDF wurden übertragen.</p>
+        <button class="close-btn" onclick="document.getElementById('successOverlay').style.display='none'">Schließen</button>
+    </div>
+</div>
+
+<script>
+    // --- KONFIGURATION ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFK_O2BpgmjahSQa60QBF_88mTSOgxAPZgsjG66zSylOg0tBPbO2llQH0MZKa5JX6P/exec"; 
+
+    // Datum setzen
+    document.getElementById('currentDate').innerText = new Date().toLocaleDateString('de-DE');
+    let startTime = Date.now();
+
+    // Validierung: Button aktivieren
+    const inputs = document.querySelectorAll('.interactive-input, .interactive-select, #studentName');
+    const sendBtn = document.getElementById('sendBtn');
+    const statusText = document.getElementById('statusText');
+
+    function checkCompletion() {
+        let isComplete = true;
+        if(!document.getElementById('studentName').value.trim()) isComplete = false;
+        
+        document.querySelectorAll('.interactive-input, .interactive-select').forEach(el => {
+            if(!el.value.trim()) isComplete = false;
+        });
+
+        if(isComplete) {
+            sendBtn.disabled = false;
+            sendBtn.classList.add('enabled');
+            statusText.innerText = "Bereit zum Senden!";
+            statusText.style.color = "green";
+        } else {
+            sendBtn.disabled = true;
+            sendBtn.classList.remove('enabled');
+            statusText.innerText = "Bitte Name eingeben und alle Felder ausfüllen.";
+            statusText.style.color = "#555";
+        }
+    }
+
+    inputs.forEach(el => el.addEventListener('input', checkCompletion));
+    inputs.forEach(el => el.addEventListener('change', checkCompletion));
+
+    // Selbstkontrolle
+    function checkAnswers() {
+        document.querySelectorAll('.interactive-input, .interactive-select').forEach(el => {
+            const user = el.value.trim().toLowerCase().replace(/\.$/, "");
+            const solution = el.getAttribute('data-solution').trim().toLowerCase().replace(/\.$/, "");
+            const feedback = el.nextElementSibling;
+
+            el.classList.remove('correct', 'incorrect');
+            if(user === solution && user !== "") {
+                el.classList.add('correct');
+                if(feedback && feedback.classList.contains('solution-feedback')) feedback.style.display = 'none';
+            } else {
+                if(el.value !== "") el.classList.add('incorrect');
+                if(feedback && feedback.classList.contains('solution-feedback')) feedback.style.display = 'block';
+            }
+        });
+    }
+
+    // PDF GENERIEREN & SENDEN
+    async function generateAndSend() {
+        if(SCRIPT_URL.includes("HIER_IHRE")) {
+            alert("Fehler: Script URL fehlt im Code.");
+            return;
+        }
+
+        const spinner = document.getElementById('spinner');
+        const btnText = sendBtn.querySelector('span');
+        
+        sendBtn.disabled = true;
+        btnText.style.display = 'none';
+        spinner.style.display = 'block';
+        statusText.innerText = "Generiere PDF & Sende...";
+
+        // Daten sammeln
+        const name = document.getElementById('studentName').value;
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        let errors = [];
+        document.querySelectorAll('.interactive-input, .interactive-select').forEach(el => {
+             const user = el.value.trim().toLowerCase().replace(/\.$/, "");
+             const solution = el.getAttribute('data-solution').trim().toLowerCase().replace(/\.$/, "");
+             if(user !== solution) errors.push(el.getAttribute('data-label'));
+        });
+
+        const element = document.getElementById('sheetToPrint');
+        
+        // Verbesserte Optionen für html2pdf
+        const opt = {
+            margin:       10, // mm
+            filename:     'Arbeitsblatt_' + name + '.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { 
+                scale: 2, 
+                scrollY: 0, // WICHTIG: Verhindert leere Seiten am Anfang durch Scrolling
+                useCORS: true,
+                windowWidth: element.scrollWidth // Stellt sicher, dass die volle Breite genutzt wird
+            }, 
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            // Automatische Seitenumbrüche verbessern
+            pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+
+        try {
+            // 1. PDF als Base64 URI String erzeugen
+            const pdfDataUri = await html2pdf().set(opt).from(element).output('datauristring');
+            
+            // Base64 Header (data:application/pdf;base64,) entfernen für Google Apps Script
+            const base64Content = pdfDataUri.split(',')[1];
+
+            // 2. Payload vorbereiten
+            const payload = {
+                name: name,
+                duration: duration,
+                errors: errors.length > 0 ? errors.join(", ") : "Keine",
+                pdfBase64: base64Content
+            };
+
+            // 3. Senden (no-cors)
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors', 
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            // Da no-cors keine Antwort liefert, gehen wir bei keinem Netzwerkfehler von Erfolg aus
+            spinner.style.display = 'none';
+            btnText.style.display = 'inline';
+            document.getElementById('successOverlay').style.display = 'flex';
+            statusText.innerText = "Gesendet.";
+
+        } catch (e) {
+            console.error(e);
+            spinner.style.display = 'none';
+            btnText.style.display = 'inline';
+            sendBtn.disabled = false;
+            statusText.innerText = "Fehler beim Senden: " + e.message;
+            statusText.style.color = "red";
+        }
+    }
+</script>
+
+</body>
+</html>
