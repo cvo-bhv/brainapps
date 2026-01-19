@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bruch-Meister</title>
+    
+    <!-- 1. Tailwind CSS für das Design laden -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. React und ReactDOM laden -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 3. Babel laden (damit der Browser JSX versteht) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Versteckt die Pfeile in Zahlen-Inputs */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div id="root"></div>
+
+    <!-- Hier beginnt der eigentliche App-Code -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- ICONS (Als React Komponenten nachgebaut, damit keine externen Imports nötig sind) ---
+        const Icon = ({ path, className, fill = "none" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {path}
+            </svg>
+        );
+
+        const Trophy = (props) => <Icon {...props} path={<><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></>} />;
+        const Star = (props) => <Icon {...props} path={<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>} />;
+        const ArrowRight = (props) => <Icon {...props} path={<><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></>} />;
+        const CheckCircle = (props) => <Icon {...props} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />;
+        const XCircle = (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></>} />;
+        const Sparkles = (props) => <Icon {...props} path={<><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5H5"/><path d="M2 7h3"/></>} />;
+        const User = (props) => <Icon {...props} path={<><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />;
+        const List = (props) => <Icon {...props} path={<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>} />;
+        const Play = (props) => <Icon {...props} path={<polygon points="5 3 19 12 5 21 5 3"/>} />;
+        const Loader2 = (props) => <Icon {...props} path={<path d="M21 12a9 9 0 1 1-6.219-8.56"/>} />;
+        const WifiOff = (props) => <Icon {...props} path={<><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>} />;
+        const School = (props) => <Icon {...props} path={<><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2"/><path d="M14 22v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/><path d="M18 5v17"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/></>} />;
+
+
+        // --- Backend Configuration (Google) ---
+        const API_URL = "https://script.google.com/macros/s/AKfycbzzFMoym7yG4u0f1EUm2-OE53iiglk15ZGEsESvQn312fchDICuNr0nr2HQEneQ8TX_/exec";
+
+        // --- SCORM Utility (Mini-Driver) ---
+        const Scorm = {
+            api: null,
+            isActive: false,
+
+            init: function() {
+                try {
+                    let win = window;
+                    let attempts = 0;
+                    
+                    while (attempts < 10) {
+                        try {
+                            if (win.API) {
+                                this.api = win.API;
+                                break;
+                            }
+                            if (win.parent && win.parent !== win) {
+                                win = win.parent;
+                            } else {
+                                break;
+                            }
+                        } catch (accessError) {
+                            console.warn("SCORM: Zugriff auf Parent blockiert (CORS).");
+                            break;
+                        }
+                        attempts++;
+                    }
+                    
+                    if (this.api) {
+                        this.api.LMSInitialize("");
+                        this.api.LMSSetValue("cmi.core.lesson_status", "incomplete");
+                        this.api.LMSCommit("");
+                        this.isActive = true;
+                        console.log("SCORM: Verbunden.");
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn("SCORM Init Error:", e);
+                }
+                return false;
+            },
+
+            sendScore: function(score, status = "passed") {
+                if (this.isActive && this.api) {
+                    try {
+                        this.api.LMSSetValue("cmi.core.score.raw", score);
+                        this.api.LMSSetValue("cmi.core.lesson_status", status);
+                        this.api.LMSCommit("");
+                        console.log(`SCORM: Score ${score} gesendet.`);
+                    } catch (e) {
+                        console.error("SCORM Sende-Fehler:", e);
+                    }
+                }
+            },
+
+            finish: function() {
+                if (this.isActive && this.api) {
+                    try {
+                        this.api.LMSFinish("");
+                    } catch (e) { }
+                }
+            }
+        };
+
+        // --- Helper Functions ---
+        const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+        // --- Components ---
+
+        const Fraction = ({ num, den, className = "" }) => (
+            <div className={`flex flex-col items-center justify-center font-bold mx-2 ${className}`}>
+                <span className="border-b-2 border-slate-700 px-2 pb-1 mb-1 block w-full text-center">{num}</span>
+                <span className="block w-full text-center">{den}</span>
+            </div>
+        );
+
+        const Button = ({ onClick, children, variant = "primary", className = "", disabled = false, type = "button" }) => {
+            const baseStyle = "px-6 py-3 rounded-2xl font-bold shadow-[0_4px_0_0_rgba(0,0,0,0.2)] active:shadow-none active:translate-y-1 transition-all duration-200 text-lg flex items-center justify-center gap-2";
+            const variants = {
+                primary: "bg-blue-500 text-white hover:bg-blue-600 shadow-blue-700",
+                success: "bg-green-500 text-white hover:bg-green-600 shadow-green-700",
+                danger: "bg-red-500 text-white hover:bg-red-600 shadow-red-700",
+                neutral: "bg-slate-200 text-slate-700 hover:bg-slate-300 shadow-slate-400",
+                outline: "border-2 border-slate-300 text-slate-600 hover:bg-slate-50 shadow-slate-200"
+            };
+            return (
+                <button type={type} onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${className} ${disabled ? 'opacity-50 cursor-not-allowed shadow-none translate-y-1' : ''}`}>
+                    {children}
+                </button>
+            );
+        };
+
+        const FeedbackCard = ({ isCorrect, message, onNext }) => (
+            <div className={`mt-8 p-6 rounded-2xl animate-in fade-in slide-in-from-bottom-4 duration-300 ${isCorrect ? 'bg-green-100 border-2 border-green-400' : 'bg-red-100 border-2 border-red-400'}`}>
+                <div className="flex items-start gap-4">
+                    {isCorrect ? <CheckCircle className="w-8 h-8 text-green-600 shrink-0" /> : <XCircle className="w-8 h-8 text-red-600 shrink-0" />}
+                    <div className="flex-1">
+                        <h3 className={`text-xl font-bold mb-2 ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>
+                            {isCorrect ? "Fantastisch!" : "Nicht ganz..."}
+                        </h3>
+                        <p className="text-slate-700 mb-4 text-lg leading-relaxed">{message}</p>
+                        <Button onClick={onNext} variant={isCorrect ? "success" : "primary"}>
+                            {isCorrect ? "Weiter geht's!" : "Versuch es nochmal"} <ArrowRight className="w-5 h-5" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // --- Main App Component ---
+
+        function App() {
+            const [view, setView] = useState('login');
+            const [playerName, setPlayerName] = useState('');
+            const [highscores, setHighscores] = useState([]);
+            const [isLoadingScores, setIsLoadingScores] = useState(false);
+            const [isOfflineMode, setIsOfflineMode] = useState(false);
+            const [scormConnected, setScormConnected] = useState(false);
+            
+            // Game States
+            const [level, setLevel] = useState(1);
+            const [score, setScore] = useState(0);
+            const [streak, setStreak] = useState(0);
+            const [progress, setProgress] = useState(0);
+            const [task, setTask] = useState(null);
+            const [userInput, setUserInput] = useState({});
+            const [feedback, setFeedback] = useState(null);
+            const [showLevelUp, setShowLevelUp] = useState(false);
+
+            const TASKS_PER_LEVEL = 5; 
+
+            // --- Initialize SCORM on Mount ---
+            useEffect(() => {
+                const connected = Scorm.init();
+                setScormConnected(connected);
+                return () => {
+                    Scorm.finish();
+                };
+            }, []);
+
+            // --- Backend Communication ---
+            const fetchHighscores = async () => {
+                setIsLoadingScores(true);
+                setIsOfflineMode(false);
+                try {
+                    const response = await fetch(`${API_URL}?action=read&t=${Date.now()}`);
+                    if (!response.ok) throw new Error("Netzwerkfehler");
+
+                    const data = await response.json();
+                    const scores = Array.isArray(data) ? data : (data.data || []);
+                    scores.sort((a, b) => b.score - a.score);
+                    setHighscores(scores);
+                } catch (error) {
+                    console.warn("Backend Fehler:", error);
+                    setIsOfflineMode(true);
+                    setHighscores([
+                        { name: "MatheProfi", score: 1200, streak: 10 },
+                        { name: "ZahlenFee", score: 950, streak: 5 },
+                    ]);
+                } finally {
+                    setIsLoadingScores(false);
+                }
+            };
+
+            const submitHighscore = async (finalScore, finalStreak) => {
+                setView('submitting');
+                try {
+                    const payload = {
+                        type: 'highscore',
+                        name: playerName,
+                        score: finalScore,
+                        streak: finalStreak
+                    };
+
+                    await fetch(API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    setTimeout(async () => {
+                        await fetchHighscores();
+                        setView('leaderboard');
+                    }, 1500);
+
+                } catch (error) {
+                    setTimeout(() => {
+                        fetchHighscores();
+                        setView('leaderboard');
+                    }, 1000);
+                }
+            };
+
+            // --- Game Logic ---
+
+            useEffect(() => {
+                if (view === 'game') {
+                    generateTask();
+                }
+            }, [level, view]);
+
+            const generateTask = () => {
+                setFeedback(null);
+                if (level === 3) setUserInput({ gap1: "", gap2: "" });
+                else if (level === 4) setUserInput({ expN1: "", expD1: "", resN: "", resD: "" });
+                else setUserInput({});
+                
+                if (level === 1) {
+                    const num = getRandomInt(1, 5);
+                    const den = getRandomInt(num + 1, 9);
+                    const factor = getRandomInt(2, 9);
+                    setTask({ type: 'identify', n1: num, d1: den, factor: factor, n2: num * factor, d2: den * factor, options: generateOptions(factor) });
+                }
+                else if (level === 2) {
+                    const factor = getRandomInt(2, 5);
+                    const den1 = getRandomInt(2, 5);
+                    const den2 = den1 * factor;
+                    const num1 = getRandomInt(1, den1 - 1) || 1;
+                    const num2 = getRandomInt(1, den2 - 1) || 1;
+                    setTask({ type: 'prepare_add', n1: num1, d1: den1, n2: num2, d2: den2, factor: factor, targetDen: den2, options: generateOptions(factor) });
+                }
+                else if (level === 3) {
+                    const isAddition = Math.random() > 0.3;
+                    const factor = getRandomInt(2, 4);
+                    const den1 = getRandomInt(2, 5);
+                    const targetDen = den1 * factor;
+                    let num1 = getRandomInt(1, den1 - 1) || 1;
+                    let num2 = getRandomInt(1, targetDen - 2) || 1;
+                    if (!isAddition) { while ((num1 * factor) <= num2) { num1 = getRandomInt(1, den1 - 1) || 1; factor > 2 ? num2 = getRandomInt(1, 3) : num2 = 1; } }
+                    setTask({ type: 'gap_fill', op: isAddition ? '+' : '-', n1: num1, d1: den1, n2: num2, d2: targetDen, factor: factor, expandedNum: num1 * factor, finalNum: isAddition ? (num1 * factor) + num2 : (num1 * factor) - num2 });
+                }
+                else if (level === 4) {
+                    const isAddition = Math.random() > 0.5;
+                    const factor = getRandomInt(2, 4);
+                    const den1 = getRandomInt(2, 5);
+                    const targetDen = den1 * factor;
+                    const num1 = getRandomInt(1, den1 - 1) || 1;
+                    let num2 = getRandomInt(1, targetDen - 2) || 1;
+                    if (!isAddition) { while ((num1 * factor) <= num2) { num2 = getRandomInt(1, num1 * factor - 1) || 1; } }
+                    setTask({ type: 'full_calc', op: isAddition ? '+' : '-', n1: num1, d1: den1, n2: num2, d2: targetDen, targetDen: targetDen, factor: factor, expandedNum1: num1 * factor, finalNum: isAddition ? (num1 * factor) + num2 : (num1 * factor) - num2 });
+                }
+            };
+
+            const generateOptions = (correct) => {
+                let opts = new Set([correct]);
+                while (opts.size < 4) opts.add(getRandomInt(2, 10));
+                return Array.from(opts).sort(() => Math.random() - 0.5);
+            };
+
+            const handleCheck = (answer) => {
+                if (feedback) return;
+                let correct = false;
+                let msg = "";
+
+                if (level === 1) { correct = answer === task.factor; msg = correct ? `Genau! ${task.n1} · ${task.factor} = ${task.n2}` : "Nicht ganz. Achte auf die Malreihen."; } 
+                else if (level === 2) { correct = answer === task.factor; msg = correct ? "Perfekt! Die Nenner sind jetzt gleich." : "Welche Zahl bringt dich zum Zielnenner?"; }
+                else if (level === 3) { correct = parseInt(userInput.gap1) === task.expandedNum && parseInt(userInput.gap2) === task.finalNum; msg = correct ? "Super gerechnet!" : "Überprüfe das Erweitern oder das Ergebnis nochmal."; }
+                else if (level === 4) { correct = parseInt(userInput.expN1) === task.expandedNum1 && parseInt(userInput.expD1) === task.targetDen && parseInt(userInput.resN) === task.finalNum && parseInt(userInput.resD) === task.targetDen; msg = correct ? "Meisterhaft!" : "Da ist noch ein kleiner Fehler im Rechenweg."; }
+
+                if (correct) {
+                    const newScore = score + 10 + (streak * 2);
+                    const newStreak = streak + 1;
+                    setScore(newScore);
+                    setStreak(newStreak);
+                    setFeedback({ isCorrect: true, message: msg });
+                    
+                    if (progress + 1 >= TASKS_PER_LEVEL) {
+                        setTimeout(() => setShowLevelUp(true), 1500);
+                    }
+                } else {
+                    setStreak(0);
+                    setFeedback({ isCorrect: false, message: msg });
+                }
+            };
+
+            const nextTask = () => {
+                if (feedback?.isCorrect) { setProgress(p => p + 1); generateTask(); } 
+                else { setFeedback(null); }
+            };
+
+            const handleLevelUp = () => {
+                setTask(null);
+                if (level < 4) {
+                    setLevel(level + 1);
+                    setProgress(0);
+                    setShowLevelUp(false);
+                } else {
+                    setShowLevelUp(false);
+                    Scorm.sendScore(score, "passed");
+                    submitHighscore(score, streak);
+                }
+            };
+
+            const handleLoginSubmit = (e) => {
+                e.preventDefault();
+                if (playerName.trim()) setView('menu');
+            };
+
+            // --- Render Views ---
+
+            if (view === 'login') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-4 font-sans relative">
+                        {scormConnected && (
+                            <div className="absolute top-4 right-4 bg-white/20 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 backdrop-blur-sm animate-in fade-in">
+                                <School className="w-4 h-4" /> LMS Verbunden
+                            </div>
+                        )}
+                        <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center">
+                            <div className="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <User className="w-10 h-10 text-blue-600" />
+                            </div>
+                            <h1 className="text-3xl font-bold text-slate-800 mb-2">Bruch-Meister</h1>
+                            <p className="text-slate-500 mb-8">Wie sollen wir dich nennen?</p>
+                            <form onSubmit={handleLoginSubmit}>
+                                <input type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Dein Name" className="w-full text-center text-xl p-4 border-2 border-slate-200 rounded-2xl mb-6 focus:border-blue-500 focus:outline-none transition-colors" autoFocus />
+                                <Button type="submit" disabled={!playerName.trim()} className="w-full !text-xl !py-4">Weiter <ArrowRight /></Button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (view === 'menu') {
+                return (
+                    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
+                        <div className="max-w-md w-full text-center">
+                            <h1 className="text-4xl font-extrabold text-slate-800 mb-2">Hallo, {playerName}! 👋</h1>
+                            <p className="text-slate-500 mb-10 text-lg">Bereit, ein Meister der Brüche zu werden?</p>
+                            <div className="space-y-4">
+                                <Button onClick={() => { setLevel(1); setScore(0); setStreak(0); setProgress(0); setTask(null); setView('game'); }} className="w-full !text-xl !py-6 !bg-blue-600 hover:!bg-blue-700 shadow-xl"><Play className="w-6 h-6 fill-current" /> Spiel Starten</Button>
+                                <Button onClick={() => { fetchHighscores(); setView('leaderboard'); }} variant="outline" className="w-full !text-xl !py-6 bg-white"><List className="w-6 h-6" /> Bestenliste</Button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (view === 'leaderboard') {
+                return (
+                    <div className="min-h-screen bg-slate-50 p-4 font-sans">
+                        <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+                            <div className="p-6 bg-blue-600 text-white flex items-center justify-between shrink-0">
+                                <h2 className="text-2xl font-bold flex items-center gap-2"><Trophy className="w-8 h-8 text-yellow-300 fill-current" /> Bestenliste</h2>
+                                <Button onClick={() => setView('menu')} variant="neutral" className="!bg-white/20 !text-white hover:!bg-white/30 border-0 !py-2 !px-4 !text-sm">Zurück</Button>
+                            </div>
+                            <div className="overflow-y-auto p-4 space-y-2 relative">
+                                {isOfflineMode && <div className="bg-orange-100 border border-orange-300 text-orange-800 px-4 py-2 rounded-lg mb-4 text-sm flex items-center gap-2"><WifiOff className="w-4 h-4" /><span>Server nicht erreichbar. Zeige Beispiel-Daten.</span></div>}
+                                {isLoadingScores ? (
+                                    <div className="flex flex-col items-center justify-center py-20 text-slate-400"><Loader2 className="w-10 h-10 animate-spin mb-4" /><p>Lade Highscores...</p></div>
+                                ) : highscores.length === 0 ? (
+                                    <div className="text-center py-20 text-slate-400">Noch keine Einträge. Sei der Erste!</div>
+                                ) : (
+                                    highscores.map((entry, index) => (
+                                        <div key={index} className={`flex items-center p-4 rounded-xl border-2 ${entry.name === playerName ? 'bg-yellow-50 border-yellow-300' : 'bg-white border-slate-100'}`}>
+                                            <div className={`w-10 h-10 flex items-center justify-center rounded-full font-bold text-lg mr-4 ${index === 0 ? 'bg-yellow-100 text-yellow-700' : index === 1 ? 'bg-slate-200 text-slate-700' : index === 2 ? 'bg-orange-100 text-orange-700' : 'bg-slate-50 text-slate-500'}`}>{index + 1}</div>
+                                            <div className="flex-1"><div className="font-bold text-slate-800 text-lg">{entry.name}</div><div className="text-xs text-slate-400 font-medium">🔥 {entry.streak}er Serie</div></div>
+                                            <div className="font-bold text-xl text-blue-600">{entry.score} XP</div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (view === 'submitting') {
+                return (
+                    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans text-slate-600">
+                        <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+                        <p className="text-xl font-bold">Speichere deinen Erfolg...</p>
+                    </div>
+                );
+            }
+
+            if (showLevelUp) {
+                return (
+                <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center p-4 font-sans text-white">
+                    <div className="bg-white/10 backdrop-blur-md border border-white/30 p-12 rounded-3xl text-center max-w-lg shadow-2xl animate-in zoom-in duration-500">
+                    <Trophy className="w-32 h-32 mx-auto text-yellow-300 mb-6 drop-shadow-lg" />
+                    <h1 className="text-5xl font-extrabold mb-4">Level {level} Geschafft!</h1>
+                    <div className="text-6xl font-black text-yellow-300 mb-8 drop-shadow-md">{score} XP</div>
+                    <Button onClick={handleLevelUp} className="w-full !bg-yellow-400 !text-yellow-900 !text-2xl hover:!bg-yellow-300">
+                        {level < 4 ? "Nächstes Level" : "Zur Bestenliste"} <Sparkles className="w-6 h-6" />
+                    </Button>
+                    </div>
+                </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-blue-200">
+                <header className="bg-white shadow-sm sticky top-0 z-10">
+                    <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-md ${level === 1 ? 'bg-blue-500' : level === 2 ? 'bg-green-500' : level === 3 ? 'bg-purple-500' : 'bg-orange-500'}`}>{level}</div>
+                            <div><div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Level</div><div className="font-bold leading-none">{level === 1 ? 'Detektiv' : level === 2 ? 'Baumeister' : level === 3 ? 'Profi' : 'Meister'}</div></div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2 hidden sm:flex"><User className="w-4 h-4 text-slate-400" /><span className="font-bold text-slate-600">{playerName}</span></div>
+                            <div className="flex items-center gap-2"><Star className="w-5 h-5 text-yellow-400 fill-yellow-400" /><span className="font-bold text-xl">{score}</span></div>
+                            {streak > 1 && (<div className="flex items-center gap-1 text-orange-500 font-bold animate-pulse"><span className="text-lg">🔥 {streak}</span></div>)}
+                        </div>
+                    </div>
+                    <div className="h-2 bg-slate-100 w-full"><div className="h-full bg-blue-500 transition-all duration-500 ease-out" style={{ width: `${(progress / TASKS_PER_LEVEL) * 100}%` }} /></div>
+                </header>
+                <main className="max-w-3xl mx-auto p-4 pb-20">
+                    <div className="bg-white rounded-3xl shadow-xl p-6 md:p-10 min-h-[400px] flex flex-col items-center justify-center relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 opacity-50"></div>
+                        
+                        {level === 1 && task && task.type === 'identify' && (
+                            <div className="w-full text-center">
+                                <h2 className="text-2xl font-bold mb-8 text-slate-600">Mit welcher Zahl wurde erweitert?</h2>
+                                <div className="flex items-center justify-center gap-8 mb-12 text-5xl md:text-7xl"><Fraction num={task.n1} den={task.d1} /><ArrowRight className="text-blue-300 w-12 h-12" /><Fraction num={task.n2} den={task.d2} className="text-blue-600" /></div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">{task.options.map((opt, i) => (<Button key={i} onClick={() => handleCheck(opt)} disabled={feedback !== null} variant="outline" className="!text-3xl !py-6 hover:!border-blue-400 hover:!text-blue-600">{opt}</Button>))}</div>
+                            </div>
+                        )}
+                        
+                        {level === 2 && task && task.type === 'prepare_add' && (
+                            <div className="w-full text-center">
+                                <h2 className="text-2xl font-bold mb-2 text-slate-600">Mach die Nenner gleich!</h2>
+                                <p className="text-slate-400 mb-8">Ziel-Nenner: <strong className="text-slate-600">{task.targetDen}</strong></p>
+                                <div className="flex items-center justify-center gap-6 mb-12 text-4xl md:text-6xl bg-slate-50 p-6 rounded-3xl border border-slate-100 min-h-[160px]">
+                                    {feedback?.isCorrect ? (
+                                        <div className="flex flex-wrap items-center justify-center gap-4 animate-in zoom-in duration-500">
+                                            <div className="flex flex-col items-center"><div className="text-sm text-blue-500 font-bold mb-2 animate-bounce">Erweitert!</div><div className="p-3 md:p-4 rounded-2xl bg-green-50 shadow-inner border-2 border-green-400"><Fraction num={task.n1 * task.factor} den={task.targetDen} className="text-green-700 scale-110 transform transition-transform" /></div></div>
+                                            <span className="text-slate-400 font-bold text-2xl">+</span><div className="p-3 md:p-4 rounded-2xl bg-white border-2 border-slate-100 opacity-50"><Fraction num={task.n2} den={task.d2} /></div>
+                                            <span className="text-slate-400 font-bold text-2xl">=</span>
+                                            <div className="flex flex-col items-center animate-in slide-in-from-left-8 fade-in duration-1000 delay-1000 fill-mode-forwards"><div className="text-sm text-purple-500 font-bold mb-2 animate-bounce delay-1000">Ergebnis!</div><div className="p-3 md:p-4 rounded-2xl bg-purple-50 shadow-inner border-2 border-purple-400"><Fraction num={(task.n1 * task.factor) + task.n2} den={task.targetDen} className="text-purple-700 scale-110" /></div></div>
+                                        </div>
+                                    ) : (<div className="flex items-center gap-6"><div className="flex items-center gap-4 p-4 rounded-2xl bg-white shadow-sm border-2 border-blue-200 relative"><div className="absolute -top-3 -right-3 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-bounce">Hier!</div><Fraction num={task.n1} den={task.d1} /></div><span className="text-slate-300">+</span><Fraction num={task.n2} den={task.d2} className="opacity-50" /></div>)}
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">{task.options.map((opt, i) => (<Button key={i} onClick={() => handleCheck(opt)} disabled={feedback !== null} variant={feedback?.isCorrect && opt === task.factor ? "success" : "outline"} className="!text-3xl !py-6 hover:!border-purple-400 hover:!text-purple-600">⋅ {opt}</Button>))}</div>
+                            </div>
+                        )}
+                        
+                        {level === 3 && task && task.type === 'gap_fill' && (
+                            <div className="w-full text-center">
+                                <h2 className="text-2xl font-bold mb-2 text-slate-600">Lücken füllen</h2>
+                                <div className="flex flex-wrap items-center justify-center gap-4 text-3xl md:text-5xl mb-10">
+                                    <div className="flex items-center opacity-60 scale-75 md:scale-90"><Fraction num={task.n1} den={task.d1} /><span className="mx-2">{task.op}</span><Fraction num={task.n2} den={task.d2} /><span className="mx-2">=</span></div>
+                                    <div className="flex items-center p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                                        <div className="flex flex-col items-center mx-2"><input type="number" value={userInput.gap1 || ""} onChange={(e) => setUserInput({...userInput, gap1: e.target.value})} disabled={feedback !== null} className="w-16 h-16 md:w-20 md:h-20 text-center border-2 border-blue-300 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-600 font-bold mb-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="?" /><span className="border-t-2 border-slate-700 w-full mt-1"></span><span className="mt-1">{task.d2}</span></div>
+                                        <span className="mx-2 font-bold text-slate-400">{task.op}</span><Fraction num={task.n2} den={task.d2} /><span className="mx-2 font-bold text-slate-400">=</span>
+                                        <div className="flex flex-col items-center mx-2"><input type="number" value={userInput.gap2 || ""} onChange={(e) => setUserInput({...userInput, gap2: e.target.value})} disabled={feedback !== null} className="w-16 h-16 md:w-20 md:h-20 text-center border-2 border-green-300 rounded-xl bg-white focus:outline-none focus:ring-4 focus:ring-green-200 text-green-600 font-bold mb-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" placeholder="?" /><span className="border-t-2 border-slate-700 w-full mt-1"></span><span className="mt-1">{task.d2}</span></div>
+                                    </div>
+                                </div>
+                                {!feedback && <Button onClick={() => handleCheck(null)} className="w-full md:w-auto mx-auto">Prüfen <CheckCircle className="w-5 h-5" /></Button>}
+                            </div>
+                        )}
+                        
+                        {level === 4 && task && task.type === 'full_calc' && (
+                            <div className="w-full text-center">
+                                <h2 className="text-2xl font-bold mb-2 text-slate-600">Meister-Prüfung</h2>
+                                <div className="flex flex-col items-center gap-6">
+                                    <div className="text-4xl font-bold text-slate-700 mb-4 flex items-center gap-4 bg-slate-100 px-6 py-3 rounded-xl"><Fraction num={task.n1} den={task.d1} /><span>{task.op}</span><Fraction num={task.n2} den={task.d2} /></div>
+                                    <div className="w-full h-px bg-slate-200 max-w-md"></div>
+                                    <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 text-2xl md:text-3xl">
+                                        <div className="flex flex-col items-center w-20"><input type="number" placeholder="Z" className="w-full p-2 text-center border-2 border-slate-300 rounded-lg mb-1 focus:border-blue-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={userInput.expN1 || ""} onChange={(e) => setUserInput({...userInput, expN1: e.target.value})} /><div className="h-0.5 w-full bg-slate-800 my-1"></div><input type="number" placeholder="N" className="w-full p-2 text-center border-2 border-slate-300 rounded-lg mt-1 focus:border-blue-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={userInput.expD1 || ""} onChange={(e) => setUserInput({...userInput, expD1: e.target.value})} /></div>
+                                        <span className="font-bold text-slate-400">{task.op}</span><Fraction num={task.n2} den={task.d2} /><span className="font-bold text-slate-400">=</span>
+                                        <div className="flex flex-col items-center w-20"><input type="number" placeholder="Z" className="w-full p-2 text-center border-2 border-green-300 rounded-lg mb-1 focus:border-green-500 outline-none bg-green-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={userInput.resN || ""} onChange={(e) => setUserInput({...userInput, resN: e.target.value})} /><div className="h-0.5 w-full bg-slate-800 my-1"></div><input type="number" placeholder="N" className="w-full p-2 text-center border-2 border-green-300 rounded-lg mt-1 focus:border-green-500 outline-none bg-green-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={userInput.resD || ""} onChange={(e) => setUserInput({...userInput, resD: e.target.value})} /></div>
+                                    </div>
+                                    {!feedback && <Button onClick={() => handleCheck(null)} className="w-full md:w-auto mt-8">Lösung einreichen</Button>}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {feedback && (<div className="w-full animate-in slide-in-from-bottom-5 fade-in duration-300"><FeedbackCard isCorrect={feedback.isCorrect} message={feedback.message} onNext={nextTask} /></div>)}
+                    </div>
+                </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
